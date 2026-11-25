@@ -82,7 +82,7 @@ export const DEFAULT_SETTINGS = {
         { url: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1920&q=70', title: 'Luxury resorts', subtitle: 'Pools, spas & more', link: '/search?category=resorts' },
       ],
     },
-    offers: { autoplay: true, autoplaySeconds: 3 },
+    offers: { autoplay: true, autoplaySeconds: 4 },
     aiBanner: {
       title: 'Plan smarter with Lexa AI',
       text: 'Describe your dream trip in plain words — get a day-wise itinerary and matching stays in seconds.',

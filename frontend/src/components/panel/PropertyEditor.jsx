@@ -6,10 +6,11 @@ import { Button, Input, Textarea, Select, Tabs, TagInput, Toggle, Checkbox, Moda
 import { api } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../context/ToastContext';
+import { htmlToText, textToHtml } from '../../lib/plainText';
 import { money, dateLabel, dateTime, titleCase } from '../../lib/format';
 
 const EMPTY = {
-  name: '', category: '', starRating: 0, shortDescription: '', description: '',
+  name: '', category: '', starRating: 0, shortDescription: '', description: '', _descText: '',
   address: { line1: '', area: '', landmark: '', pincode: '', city: '', state: '' }, geo: { lat: '', lng: '' },
   images: [], amenities: [], checkInTime: '14:00', checkOutTime: '11:00', houseRules: [], childPolicy: '', petPolicy: '',
   cancellationPolicy: { type: 'free', freeCancellationHours: 48, penaltyPercent: 0, text: '' }, contact: { phone: '', email: '' }, tags: [],
@@ -34,7 +35,7 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
 
   const load = async () => {
     const { data } = await api.get(`${apiBase}/properties/${id}`);
-    setP({ ...EMPTY, ...data, address: { ...EMPTY.address, ...data.address }, geo: data.geo || { lat: '', lng: '' }, cancellationPolicy: { ...EMPTY.cancellationPolicy, ...data.cancellationPolicy }, contact: { ...EMPTY.contact, ...data.contact } });
+    setP({ ...EMPTY, ...data, _descText: htmlToText(data.description), address: { ...EMPTY.address, ...data.address }, geo: data.geo || { lat: '', lng: '' }, cancellationPolicy: { ...EMPTY.cancellationPolicy, ...data.cancellationPolicy }, contact: { ...EMPTY.contact, ...data.contact } });
   };
   useEffect(() => { if (!isNew) load().catch((e) => toast.error(e)); /* eslint-disable-next-line */ }, [id]);
   if (!p) return <PageLoader />;
@@ -48,6 +49,8 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
     try {
       const body = { ...p, geo: p.geo?.lat ? { lat: Number(p.geo.lat), lng: Number(p.geo.lng) } : undefined, amenities: p.amenities.map((a) => a._id || a) };
       delete body.rooms;
+      body.description = textToHtml(p._descText);
+      delete body._descText;
       if (isNew) {
         const { data } = await api.post(`${apiBase}/properties`, body);
         toast.success('Property created — now add rooms');
@@ -83,14 +86,24 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
       <Tabs tabs={tabs} value={tab} onChange={setTab} className="mb-6" />
 
       {tab === 'details' && (
-        <div className="card card-pad grid gap-4 md:grid-cols-2">
-          {admin && isNew && <Select label="Vendor (owner)" required placeholder="Select vendor" value={p.vendor || ''} onChange={(e) => set('vendor', e.target.value)} options={(vendors || []).map((v) => ({ value: v._id, label: `${v.businessName} (${v.email})` }))} className="md:col-span-2" />}
-          <Input label="Property name" required value={p.name} onChange={(e) => set('name', e.target.value)} className="md:col-span-2" />
-          <Select label="Category" required placeholder="Select category" value={p.category?._id || p.category} onChange={(e) => set('category', e.target.value)} options={(cats || []).map((c) => ({ value: c._id, label: c.name }))} />
-          <Select label="Star rating" value={p.starRating} onChange={(e) => set('starRating', Number(e.target.value))} options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: n, label: n ? `${n} star` : 'Not rated' }))} />
-          <Textarea label="Short description" rows={2} maxLength={300} value={p.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} hint={`${p.shortDescription?.length || 0}/300 — shown on search results`} className="md:col-span-2" />
-          <Textarea label="Full description" rows={6} value={p.description} onChange={(e) => set('description', e.target.value)} className="md:col-span-2" hint="Basic HTML allowed" />
-          <TagInput label="Tags" value={p.tags || []} onChange={(v) => set('tags', v)} hint="Used by search, e.g. lake view, honeymoon" className="md:col-span-2" />
+        <div className="space-y-5">
+          <section className="card card-pad grid gap-4 md:grid-cols-2">
+            <div className="md:col-span-2"><h2 className="text-lg font-extrabold">Basic information</h2><p className="text-sm text-muted">What guests see first on the search results and at the top of your stay page.</p></div>
+            {admin && isNew && <Select label="Vendor (owner)" required placeholder="Select vendor" value={p.vendor || ''} onChange={(e) => set('vendor', e.target.value)} options={(vendors || []).map((v) => ({ value: v._id, label: `${v.businessName} (${v.email})` }))} className="md:col-span-2" />}
+            <Input label="Property name" required value={p.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Pink City Courtyard Hotel" className="md:col-span-2" />
+            <Select label="Property type" required placeholder="Select type" value={p.category?._id || p.category} onChange={(e) => set('category', e.target.value)} options={(cats || []).map((c) => ({ value: c._id, label: c.name }))} hint="Hotel, villa, resort, homestay…" />
+            <Select label="Star rating" value={p.starRating} onChange={(e) => set('starRating', Number(e.target.value))} options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: n, label: n ? `${'★'.repeat(n)}  ${n} star` : 'Not rated' }))} />
+          </section>
+
+          <section className="card card-pad space-y-4">
+            <div><h2 className="text-lg font-extrabold">Describe your property</h2><p className="text-sm text-muted">Write naturally, like you’re telling a guest about your stay. No formatting needed.</p></div>
+            <Textarea label="Short summary" rows={2} maxLength={300} value={p.shortDescription} onChange={(e) => set('shortDescription', e.target.value)} placeholder="One or two lines that make guests want to click — e.g. “Central hotel near MI Road, ideal for sightseeing and business trips.”" hint={`${p.shortDescription?.length || 0}/300 · shown on search results`} />
+            <Textarea label="About this property" rows={8} value={p._descText} onChange={(e) => set('_descText', e.target.value)} placeholder={'Tell guests what makes your place special — the location, the rooms, food, nearby attractions, who it suits best.\n\nPress Enter twice to start a new paragraph. Start lines with “•” to make a list.'} hint={`${p._descText?.length || 0} characters · press Enter twice for a new paragraph`} />
+          </section>
+
+          <section className="card card-pad">
+            <TagInput label="Search tags" value={p.tags || []} onChange={(v) => set('tags', v)} placeholder="Type a tag and press Enter" hint="Words guests might search for. Helps your property appear in more searches." suggestions={['Lake view', 'Honeymoon', 'Family friendly', 'Near airport', 'Pool', 'Budget', 'Luxury', 'Heritage', 'Pet friendly', 'Business travel']} />
+          </section>
         </div>
       )}
 
@@ -129,7 +142,7 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
           <Input label="Free cancellation until (hours before check-in)" type="number" min={0} value={p.cancellationPolicy.freeCancellationHours} onChange={(e) => setIn('cancellationPolicy', 'freeCancellationHours', Number(e.target.value))} />
           {p.cancellationPolicy.type === 'partial' && <Input label="Penalty % after free window" type="number" min={0} max={100} value={p.cancellationPolicy.penaltyPercent} onChange={(e) => setIn('cancellationPolicy', 'penaltyPercent', Number(e.target.value))} />}
           <Textarea label="Policy text shown to guests" rows={2} value={p.cancellationPolicy.text} onChange={(e) => setIn('cancellationPolicy', 'text', e.target.value)} className="md:col-span-2" />
-          <TagInput label="House rules" value={p.houseRules} onChange={(v) => set('houseRules', v)} className="md:col-span-2" />
+          <TagInput label="House rules" value={p.houseRules} onChange={(v) => set('houseRules', v)} placeholder="Type a rule and press Enter" hint="Shown to guests before they book" suggestions={['No smoking', 'No loud music after 10 PM', 'Valid photo ID required at check-in', 'Outside visitors not allowed', 'Unmarried couples allowed']} className="md:col-span-2" />
           <Textarea label="Child policy" rows={2} value={p.childPolicy} onChange={(e) => set('childPolicy', e.target.value)} />
           <Textarea label="Pet policy" rows={2} value={p.petPolicy} onChange={(e) => set('petPolicy', e.target.value)} />
         </div>
@@ -144,14 +157,14 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
 
 const ROOM_EMPTY = { name: '', description: '', bedType: '', sizeSqft: '', view: '', baseOccupancy: 2, maxAdults: 2, maxChildren: 1, maxOccupancy: 3, totalRooms: 1, basePrice: '', weekendPrice: '', extraAdultCharge: 0, extraChildCharge: 0, images: [], ratePlans: [{ name: 'Room only · Free cancellation', code: 'EP-FLEX', mealPlan: 'EP', refundable: true, priceAdjustment: 0, isActive: true }], isActive: true };
 
-function RoomsManager({ apiBase, propertyId }) {
+function RoomsManager({ apiBase, propertyId, amenities = [] }) {
   const { data, reload } = useApi(() => api.get(`${apiBase}/properties/${propertyId}/rooms`), [propertyId]);
   const [edit, setEdit] = useState(null);
   const [del, setDel] = useState(null);
   const toast = useToast();
   const save = async () => {
     try {
-      const body = { ...edit, amenities: undefined };
+      const body = { ...edit, amenities: (edit.amenities || []).map((a) => a._id || a) };
       if (edit._id) await api.put(`${apiBase}/properties/${propertyId}/rooms/${edit._id}`, body); else await api.post(`${apiBase}/properties/${propertyId}/rooms`, body);
       toast.success('Room saved'); setEdit(null); reload();
     } catch (e) { toast.error(e); }
@@ -170,7 +183,7 @@ function RoomsManager({ apiBase, propertyId }) {
           { key: 'weekendPrice', label: 'Weekend', render: (r) => money(r.weekendPrice || r.basePrice) },
           { key: 'ratePlans', label: 'Rate plans', render: (r) => <div className="flex flex-wrap gap-1">{r.ratePlans?.map((x) => <Badge key={x.code}>{x.code}</Badge>)}</div> },
           { key: 'isActive', label: 'Status', render: (r) => <StatusBadge status={r.isActive ? 'active' : 'closed'} /> },
-          { key: 'a', label: '', align: 'right', render: (r) => <div className="flex justify-end gap-1"><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setEdit({ ...ROOM_EMPTY, ...r })} /><Button size="xs" variant="ghost" icon={Trash2} className="text-danger" onClick={() => setDel(r)} /></div> },
+          { key: 'a', label: '', align: 'right', render: (r) => <div className="flex justify-end gap-1"><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setEdit({ ...ROOM_EMPTY, ...r, amenities: (r.amenities || []).map((a) => a._id || a) })} /><Button size="xs" variant="ghost" icon={Trash2} className="text-danger" onClick={() => setDel(r)} /></div> },
         ]}
       />
       <Modal open={Boolean(edit)} onClose={() => setEdit(null)} title={edit?._id ? 'Edit room type' : 'Add room type'} size="lg" footer={<Button onClick={save}>Save room</Button>}>
@@ -205,6 +218,12 @@ function RoomsManager({ apiBase, propertyId }) {
                     <Button size="xs" variant="ghost" icon={Trash2} className="mb-1 text-danger" onClick={() => setR('ratePlans', edit.ratePlans.filter((_, j) => j !== i))} />
                   </div>
                 ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 font-bold">Room features <span className="text-xs font-normal text-muted">shown on the guest's stay page under this room</span></p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+                {amenities.map((a) => { const ids = (edit.amenities || []).map((x) => x._id || x); return <Checkbox key={a._id} label={a.name} checked={ids.includes(a._id)} onChange={(on) => setR('amenities', on ? [...ids, a._id] : ids.filter((x) => x !== a._id))} />; })}
               </div>
             </div>
             <ImageUploader value={edit.images || []} onChange={(v) => setR('images', v)} uploadUrl={`${apiBase}/uploads/images`} max={10} />

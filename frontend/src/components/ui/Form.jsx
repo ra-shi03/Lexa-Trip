@@ -80,7 +80,7 @@ export function Checkbox({ checked, onChange, label, className }) {
 }
 
 /** Chip-style multi-value input (keywords, amenities, tags). Enter or comma adds. */
-export function TagInput({ label, hint, value = [], onChange, placeholder = 'Type and press Enter', className, max }) {
+export function TagInput({ label, hint, value = [], onChange, placeholder = 'Type and press Enter', className, max, suggestions = [] }) {
   const [draft, setDraft] = useState('');
   const add = (raw) => {
     const parts = raw.split(',').map((s) => s.trim()).filter(Boolean).filter((s) => !value.includes(s));
@@ -107,7 +107,14 @@ export function TagInput({ label, hint, value = [], onChange, placeholder = 'Typ
           placeholder={value.length ? '' : placeholder}
           className="min-w-[120px] flex-1 border-0 bg-transparent text-sm outline-none"
         />
+        {draft.trim() && <button type="button" onClick={() => add(draft)} className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-white">Add</button>}
       </div>
+      {suggestions.filter((x) => !value.includes(x)).length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-semibold text-muted">Quick add:</span>
+          {suggestions.filter((x) => !value.includes(x)).map((x) => <button key={x} type="button" onClick={() => add(x)} className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-line px-2.5 text-[13px] font-medium text-muted transition hover:border-primary hover:text-primary"><Plus size={12} />{x}</button>)}
+        </div>
+      )}
     </Field>
   );
 }

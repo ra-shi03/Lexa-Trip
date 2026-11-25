@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { useSettings } from '@/context/SettingsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { money, cx } from '@/lib/format';
+import { money } from '@/lib/format';
 
 const Head = ({ title, link }) => (
   <div className="mb-3 flex items-end justify-between px-4"><h2 className="text-lg font-extrabold">{title}</h2>{link && <Link to={link} className="flex items-center gap-1 text-sm font-bold text-primary">See all <ArrowRight size={14} /></Link>}</div>
@@ -59,24 +59,31 @@ export default function AppHome() {
   }, [data, feature]);
   const offersRef = useRef(null);
   const pausedUntil = useRef(0);
-  const [offerIdx, setOfferIdx] = useState(0);
   const offersCfg = cfg?.offers || {};
-  const pauseOffers = () => { pausedUntil.current = Date.now() + 8000; }; // user is interacting: stay put for 8s
+  const pauseOffers = () => { pausedUntil.current = Date.now() + 4000; }; // user is interacting: hold still for 4s, then keep flowing
+  // Continuous, endless slide: the list is rendered twice and scrollLeft wraps by exactly one set's width
   useEffect(() => {
     const el = offersRef.current;
-    if (!el) return undefined;
-    const idx = () => { const kids = [...el.children]; const x = el.scrollLeft + 8; let i = 0; kids.forEach((k, n) => { if (k.offsetLeft - el.offsetLeft <= x + 16) i = n; }); return i; };
-    const onScroll = () => setOfferIdx(idx());
-    el.addEventListener('scroll', onScroll, { passive: true });
-    let t;
-    if (offersCfg.autoplay !== false && offerCards.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      t = setInterval(() => {
-        if (Date.now() < pausedUntil.current || document.hidden) return;
-        const kids = [...el.children]; const next = (idx() + 1) % kids.length;
-        el.scrollTo({ left: kids[next].offsetLeft - el.offsetLeft - 16, behavior: 'smooth' });
-      }, Math.max(2, Number(offersCfg.autoplaySeconds) || 3) * 1000);
-    }
-    return () => { el.removeEventListener('scroll', onScroll); clearInterval(t); };
+    if (!el || offersCfg.autoplay === false || offerCards.length < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    let raf; let last = 0; let pos = el.scrollLeft;
+    const step = (t) => {
+      const dt = last ? Math.min(t - last, 64) : 0; last = t;
+      const first = el.children[0]; const dup = el.children[offerCards.length];
+      const loop = first && dup ? dup.offsetLeft - first.offsetLeft : 0;
+      if (loop > el.clientWidth) {
+        if (Date.now() < pausedUntil.current || document.hidden) pos = el.scrollLeft;
+        else {
+          const perCard = Math.max(2, Number(offersCfg.autoplaySeconds) || 3); // admin: seconds per card
+          pos += (first.offsetWidth + 12) / perCard * (dt / 1000);
+        }
+        if (pos >= loop) pos -= loop;
+        if (el.scrollLeft >= loop) { el.scrollLeft -= loop; pos = el.scrollLeft; }
+        el.scrollLeft = pos;
+      }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
   }, [offerCards, offersCfg.autoplay, offersCfg.autoplaySeconds]);
 
   const services = [
@@ -135,25 +142,20 @@ export default function AppHome() {
 
       {on('offers') && offerCards.length > 0 && (
         <Reveal><section className="pt-7"><Head title="Offers for you" link="/offers" />
-          <div ref={offersRef} className="hscroll px-4" onPointerDown={pauseOffers} onTouchStart={pauseOffers} onMouseEnter={pauseOffers} onFocus={pauseOffers}>
-            {offerCards.map((c) => c.kind === 'banner' ? (
-              <Link key={c.id} to={c.b.link || '/search'} className="hover-lift group relative block h-40 w-[280px] overflow-hidden rounded-brand-lg">
+          <div ref={offersRef} className="hscroll offers-flow px-4" onPointerDown={pauseOffers} onTouchStart={pauseOffers} onMouseEnter={pauseOffers} onFocus={pauseOffers}>
+            {(offerCards.length > 1 && offersCfg.autoplay !== false ? [...offerCards, ...offerCards.map((c) => ({ ...c, id: `${c.id}-dup`, dup: true }))] : offerCards).map((c) => c.kind === 'banner' ? (
+              <Link key={c.id} aria-hidden={c.dup || undefined} tabIndex={c.dup ? -1 : undefined} to={c.b.link || '/search'} className="hover-lift group relative block h-40 w-[280px] overflow-hidden rounded-brand-lg">
                 <Img src={c.b.image} alt={c.b.title} className="absolute inset-0 h-full w-full transition duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-secondary/90 via-secondary/20 to-transparent" />
                 <div className="absolute bottom-0 p-4 text-white"><p className="font-extrabold leading-tight">{c.b.title}</p><p className="text-xs text-white/80">{c.b.subtitle}</p></div>
               </Link>
             ) : (
-              <button key={c.id} onClick={() => { navigator.clipboard?.writeText(c.o.code); toast.success(`Code ${c.o.code} copied`); }} className="flex h-40 w-[230px] flex-col justify-between rounded-brand-lg border border-dashed border-primary/60 bg-primary-soft/50 p-4 text-left transition active:scale-[.98]">
+              <button key={c.id} aria-hidden={c.dup || undefined} tabIndex={c.dup ? -1 : undefined} onClick={() => { navigator.clipboard?.writeText(c.o.code); toast.success(`Code ${c.o.code} copied`); }} className="flex h-40 w-[230px] flex-col justify-between rounded-brand-lg border border-dashed border-primary/60 bg-primary-soft/50 p-4 text-left transition active:scale-[.98]">
                 <div><p className="font-extrabold text-secondary">{c.o.title}</p><p className="mt-1 line-clamp-2 text-xs text-muted">{c.o.description}</p></div>
                 <span className="flex items-center justify-between rounded-lg bg-card px-3 py-2 text-sm font-bold tracking-wider text-primary">{c.o.code}<Copy size={14} /></span>
               </button>
             ))}
           </div>
-          {offerCards.length > 1 && (
-            <div className="mt-3 flex justify-center gap-1.5" aria-hidden="true">
-              {offerCards.map((c, i) => <span key={c.id} className={cx('h-1.5 rounded-full transition-all', i === offerIdx ? 'w-5 bg-primary' : 'w-1.5 bg-line')} />)}
-            </div>
-          )}
         </section></Reveal>
       )}
 

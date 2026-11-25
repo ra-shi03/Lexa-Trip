@@ -56,7 +56,7 @@ export default function PropertyDetail() {
           <div>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Badge tone="primary">{p.category?.name}</Badge><Stars value={p.starRating} /></div>
             <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{p.name}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted"><MapPin size={15} />{[p.address?.line1, p.address?.area, p.address?.city?.name, p.address?.city?.state?.name].filter(Boolean).join(', ')}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted"><MapPin size={15} />{[p.address?.line1, p.address?.area, p.address?.landmark && `Near ${p.address.landmark}`, p.address?.city?.name, p.address?.city?.state?.name, p.address?.pincode].filter(Boolean).join(', ')}</p>
             <div className="mt-2"><RatingPill rating={p.rating} /></div>
           </div>
           <div className="flex gap-2">
@@ -81,6 +81,7 @@ export default function PropertyDetail() {
             <section>
               <p className="text-lg text-ink">{p.shortDescription}</p>
               {p.description && <div className="prose-lt mt-3 text-[15px] text-muted" dangerouslySetInnerHTML={{ __html: p.description }} />}
+              {p.tags?.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{p.tags.map((t) => <span key={t} className="rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold capitalize text-primary">{t}</span>)}</div>}
             </section>
 
             <section>
@@ -101,15 +102,23 @@ export default function PropertyDetail() {
                   return (
                     <div key={rt._id} className="card overflow-hidden">
                       <div className="grid sm:grid-cols-[220px_1fr]">
-                        <Img src={rt.images?.[0]?.url} alt={rt.name} className="h-44 w-full sm:h-full" />
+                        {rt.images?.length > 1 ? (
+                          <div className="relative">
+                            <div className="hscroll !gap-0 !px-0 !pb-0" style={{ scrollPaddingLeft: 0 }}>{rt.images.map((im, i) => <Img key={im._id || i} src={im.url} alt={im.alt || rt.name} className="h-44 w-full flex-none sm:h-full sm:min-h-[11rem]" />)}</div>
+                            <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-secondary/70 px-2 py-0.5 text-[11px] font-bold text-white">1/{rt.images.length} · swipe</span>
+                          </div>
+                        ) : <Img src={rt.images?.[0]?.url} alt={rt.name} className="h-44 w-full sm:h-full" />}
                         <div className="p-4">
                           <h3 className="text-lg font-bold">{rt.name}</h3>
                           <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                             {rt.sizeSqft && <span className="flex items-center gap-1"><Maximize size={13} />{rt.sizeSqft} sq ft</span>}
                             {rt.bedType && <span className="flex items-center gap-1"><BedDouble size={13} />{rt.bedType}</span>}
-                            <span className="flex items-center gap-1"><Users size={13} />Up to {rt.maxOccupancy} guests</span>
+                            <span className="flex items-center gap-1"><Users size={13} />Up to {rt.maxOccupancy} guests{rt.maxAdults ? ` (${plural(rt.maxAdults, 'adult')}${rt.maxChildren ? `, ${plural(rt.maxChildren, 'child', 'children')}` : ''})` : ''}</span>
                             {rt.view && <span>{rt.view} view</span>}
                           </div>
+                          {rt.description && <p className="mt-2 text-sm text-muted">{rt.description}</p>}
+                          {rt.amenities?.length > 0 && <div className="mt-2.5 flex flex-wrap gap-1.5">{rt.amenities.map((a) => <span key={a._id} className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink"><DynIcon name={a.icon} size={12} className="text-primary" />{a.name}</span>)}</div>}
+                          {(rt.extraAdultCharge > 0 || rt.extraChildCharge > 0) && <p className="mt-2 text-xs text-muted">Extra {[rt.extraAdultCharge > 0 && `adult ${money(rt.extraAdultCharge)}`, rt.extraChildCharge > 0 && `child ${money(rt.extraChildCharge)}`].filter(Boolean).join(' · ')} per night beyond {plural(rt.baseOccupancy || 2, 'guest')}.</p>}
                           <div className="mt-3 divide-y divide-line">
                             {ratesLoading && <Skeleton className="h-14" />}
                             {plans.map((r) => (
@@ -146,6 +155,8 @@ export default function PropertyDetail() {
                 <div className="card card-pad"><p className="flex items-center gap-2 font-bold"><ShieldCheck size={17} className="text-primary" />Cancellation</p><p className="mt-2 text-sm text-muted">{p.cancellationPolicy?.text || (p.cancellationPolicy?.type === 'non_refundable' ? 'Non-refundable' : `Free cancellation up to ${p.cancellationPolicy?.freeCancellationHours}h before check-in`)}</p></div>
                 {p.houseRules?.length > 0 && <div className="card card-pad sm:col-span-2"><p className="font-bold">House rules</p><ul className="mt-2 grid gap-1.5 text-sm text-muted sm:grid-cols-2">{p.houseRules.map((r) => <li key={r} className="flex gap-2"><Check size={15} className="mt-0.5 flex-none text-success" />{r}</li>)}</ul></div>}
                 {p.childPolicy && <div className="card card-pad"><p className="font-bold">Children</p><p className="mt-2 text-sm text-muted">{p.childPolicy}</p></div>}
+                {p.petPolicy && <div className="card card-pad"><p className="font-bold">Pets</p><p className="mt-2 text-sm text-muted">{p.petPolicy}</p></div>}
+                {p.contact?.phone && <div className="card card-pad"><p className="font-bold">Property contact</p><p className="mt-2 text-sm text-muted"><a href={`tel:${p.contact.phone}`} className="font-semibold text-primary">{p.contact.phone}</a></p></div>}
               </div>
             </section>
 
@@ -199,9 +210,10 @@ export default function PropertyDetail() {
                 <p className="text-sm font-semibold text-muted">{ratesLoading ? 'Checking availability…' : 'Not available for these dates — try changing them above.'}</p>
               )}
               <ul className="mt-4 space-y-2 text-sm text-muted">
-                <li className="flex gap-2"><Check size={16} className="text-success" />Instant confirmation</li>
-                <li className="flex gap-2"><Check size={16} className="text-success" />Secure payment</li>
-                <li className="flex gap-2"><Check size={16} className="text-success" />Transparent taxes &amp; fees</li>
+                {p.cancellationPolicy?.type === 'free' && <li className="flex gap-2"><Check size={16} className="flex-none text-success" />Free cancellation up to {p.cancellationPolicy.freeCancellationHours}h before check-in</li>}
+                <li className="flex gap-2"><Clock size={16} className="flex-none text-primary" />Check-in {p.checkInTime} · Check-out {p.checkOutTime}</li>
+                {p.maxGuests > 0 && <li className="flex gap-2"><Users size={16} className="flex-none text-primary" />Up to {plural(p.maxGuests, 'guest')} per property</li>}
+                <li className="flex gap-2"><Check size={16} className="flex-none text-success" />Secure payment · taxes shown upfront</li>
               </ul>
             </div>
           </aside>
