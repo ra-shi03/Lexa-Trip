@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= meta.title %></title>
+  <meta name="description" content="<%= meta.description %>" />
+  <% if (meta.keywords) { %><meta name="keywords" content="<%= meta.keywords %>" /><% } %>
+  <meta name="robots" content="<%= meta.robots %>" />
+  <link rel="canonical" href="<%= meta.canonical %>" />
+  <% if (meta.gscVerification) { %><meta name="google-site-verification" content="<%= meta.gscVerification %>" /><% } %>
+  <% if (meta.bingVerification) { %><meta name="msvalidate.01" content="<%= meta.bingVerification %>" /><% } %>
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="<%= site.name %>" />
+  <meta property="og:title" content="<%= meta.ogTitle %>" />
+  <meta property="og:description" content="<%= meta.ogDescription %>" />
+  <meta property="og:url" content="<%= meta.canonical %>" />
+  <meta property="og:image" content="<%= meta.ogImage %>" />
+  <meta property="og:locale" content="en_IN" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="<%= site.favicon %>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=<%= encodeURIComponent(theme.fontFamily) %>:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: <%= theme.primary %>; --primary-hover: <%= theme.primaryHover %>; --primary-soft: <%= theme.primarySoft %>;
+      --secondary: <%= theme.secondary %>; --bg: <%= theme.background %>; --surface: <%= theme.surface %>;
+      --text: <%= theme.text %>; --muted: <%= theme.muted %>; --border: <%= theme.border %>;
+      --radius: <%= theme.radius %>px; --font: '<%= theme.fontFamily %>', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+  </style>
+  <link rel="stylesheet" href="/seo-assets/seo.css" />
+  <% schemas.forEach(function (s) { %>
+  <script type="application/ld+json"><%- JSON.stringify(s).replace(/</g, '\\u003c') %></script>
+  <% }) %>
+</head>
+<body>
+<% if (preview) { %><div class="preview-bar">Preview mode — this page is not public yet and is hidden from search engines.</div><% } %>
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="/" class="brand" aria-label="<%= site.name %> home">
+      <img src="<%= site.mark %>" alt="<%= site.name %> logo" width="36" height="36" />
+      <span class="brand-text"><b>LEXA</b><span>TRIP</span></span>
+    </a>
+    <nav class="header-nav" aria-label="Main">
+      <a href="/search">Stays</a>
+      <a href="/bus">Buses</a>
+      <a href="/flights">Flights</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="/">Book now</a>
+  </div>
+</header>
+<main>
+<% if (crumbs && crumbs.length) { %>
+<nav class="container crumbs" aria-label="Breadcrumb">
+  <ol>
+    <% crumbs.forEach(function (c, i) { %>
+      <li><% if (i < crumbs.length - 1) { %><a href="<%= c.url %>"><%= c.label %></a><% } else { %><span aria-current="page"><%= c.label %></span><% } %></li>
+    <% }) %>
+  </ol>
+</nav>
+<% } %>

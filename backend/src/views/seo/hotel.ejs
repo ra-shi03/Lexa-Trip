@@ -1,0 +1,117 @@
+<%- include('../partials/head') %>
+<article class="container hotel-page">
+  <header class="page-head">
+    <p class="eyebrow"><%= hotel.propertyType || 'Hotel' %> · <%= city.name %>, <%= state.name %></p>
+    <h1><%= (hotel.content && hotel.content.h1) || hotel.name %></h1>
+    <div class="head-meta">
+      <% if (hotel.starRating) { %><span class="stars"><%= '★'.repeat(hotel.starRating) %></span><% } %>
+      <% if (hotel.address && (hotel.address.area || hotel.address.line1)) { %><span class="muted"><%= [hotel.address.line1, hotel.address.area].filter(Boolean).join(', ') %></span><% } %>
+      <% (hotel.categories || []).filter(function (c) { return c.status === 'published'; }).forEach(function (c) { %>
+        <a class="chip chip-sm" href="<%= paths.category(state, city, c) %>"><%= c.name %></a>
+      <% }) %>
+    </div>
+  </header>
+
+  <div class="hero-gallery">
+    <% if (hotel.heroImage && hotel.heroImage.url) { %>
+      <img class="hero-main" src="<%= hotel.heroImage.url %>" alt="<%= hotel.heroImage.alt || hotel.name %>" width="1200" height="700" fetchpriority="high" />
+    <% } %>
+    <div class="hero-thumbs">
+      <% (hotel.gallery || []).slice(0, 4).forEach(function (g) { %>
+        <img src="<%= g.url %>" alt="<%= g.alt || hotel.name %>" loading="lazy" width="400" height="260" />
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="layout-2col">
+    <div class="main-col">
+      <% if (hotel.shortDescription) { %><p class="lead"><%= hotel.shortDescription %></p><% } %>
+      <% if (hotel.description) { %><section class="prose"><%- hotel.description %></section><% } %>
+
+      <%- include('../partials/content', { content: hotel.content }) %>
+
+      <% if (hotel.rooms && hotel.rooms.length) { %>
+      <section class="block" id="rooms">
+        <h2>Rooms &amp; suites at <%= hotel.name %></h2>
+        <div class="grid cards-2">
+          <% hotel.rooms.forEach(function (r) { %>
+            <div class="card room-card">
+              <% if (r.images && r.images[0]) { %><img src="<%= r.images[0].url %>" alt="<%= r.images[0].alt || r.name %>" loading="lazy" width="400" height="240" /><% } %>
+              <div class="card-body">
+                <h3><%= r.name %></h3>
+                <p class="muted small"><%= [r.sizeSqft ? r.sizeSqft + ' sq ft' : '', r.bedType, r.occupancy, r.view].filter(Boolean).join(' · ') %></p>
+                <% if (r.description) { %><p><%= r.description %></p><% } %>
+                <% if (r.amenities && r.amenities.length) { %><ul class="tags"><% r.amenities.forEach(function (a) { %><li><%= a %></li><% }) %></ul><% } %>
+                <% if (r.priceFrom) { %><p class="price">from <b><%= fmt(r.priceFrom) %></b> / night</p><% } %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+      <% } %>
+
+      <% var feats = (hotel.amenities || []).concat(hotel.facilities || []); if (feats.length) { %>
+      <section class="block" id="amenities">
+        <h2>Facilities &amp; amenities</h2>
+        <ul class="amenity-list"><% feats.forEach(function (a) { %><li><%= a %></li><% }) %></ul>
+      </section>
+      <% } %>
+
+      <% if (itineraries.length) { %>
+      <section class="block" id="itineraries">
+        <h2>Itineraries at <%= hotel.name %></h2>
+        <div class="grid cards-2">
+          <% itineraries.forEach(function (it) { %>
+            <a class="card itin-card" href="<%= paths.itinerary(state, city, hotel, it) %>">
+              <div class="card-body">
+                <p class="eyebrow"><%= it.durationDays %> day<%= it.durationDays > 1 ? 's' : '' %><%= it.durationNights ? ' / ' + it.durationNights + ' night' + (it.durationNights > 1 ? 's' : '') : '' %><%= it.travellerType ? ' · ' + it.travellerType : '' %></p>
+                <h3><%= it.title %></h3>
+                <% if (it.summary) { %><p class="muted clamp-2"><%= it.summary %></p><% } %>
+              </div>
+            </a>
+          <% }) %>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (hotel.policies && hotel.policies.length) { %>
+      <section class="block" id="policies">
+        <h2>Hotel policies</h2>
+        <dl class="policies"><% hotel.policies.forEach(function (p) { %><dt><%= p.title %></dt><dd><%= p.text %></dd><% }) %></dl>
+      </section>
+      <% } %>
+
+      <%- include('../partials/faqs', { faqs: hotel.faqs }) %>
+    </div>
+
+    <aside class="side-col">
+      <div class="card sticky book-box">
+        <div class="card-body">
+          <% var from = livePriceFrom || hotel.priceFrom; if (from) { %><p class="muted small">Prices from</p><p class="big-price"><%= fmt(from) %> <span class="muted small">/ night</span></p><% } %>
+          <a class="btn btn-primary btn-block" href="<%= bookUrl %>">Check availability</a>
+          <ul class="facts">
+            <% if (hotel.checkInTime) { %><li><span>Check-in</span><b><%= hotel.checkInTime %></b></li><% } %>
+            <% if (hotel.checkOutTime) { %><li><span>Check-out</span><b><%= hotel.checkOutTime %></b></li><% } %>
+            <% if (hotel.contact && hotel.contact.phone) { %><li><span>Phone</span><b><%= hotel.contact.phone %></b></li><% } %>
+          </ul>
+          <% if (hotel.address && hotel.address.full) { %><p class="small muted"><%= hotel.address.full %></p><% } %>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <% if (related.length) { %>
+  <section class="block">
+    <h2>Other stays in <%= city.name %></h2>
+    <div class="grid cards-4">
+      <% related.forEach(function (h) { %><%- include('../partials/hotel-card', { h: h, url: paths.hotel(state, city, h) }) %><% }) %>
+    </div>
+  </section>
+  <% } %>
+
+  <%- include('../partials/links', {
+    heading: 'Explore more',
+    links: (hotel.internalLinks || []).concat(articles.map(function (a) { return { label: a.title, url: a.city ? paths.article(state, city, a) : paths.article(state, null, a) }; })).concat([{ label: 'All hotels in ' + city.name, url: paths.cityHotels(state, city) }])
+  }) %>
+</article>
+<%- include('../partials/footer') %>

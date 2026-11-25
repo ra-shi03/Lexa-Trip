@@ -1,0 +1,10 @@
+<%# Structured editorial content: intro + H2/H3 sections (sanitised HTML from the CMS) %>
+<% if (content) { %>
+  <% if (content.intro) { %><div class="prose lead"><%- content.intro %></div><% } %>
+  <% (content.sections || []).forEach(function (s) { %>
+    <section class="prose">
+      <% if (s.heading) { %><% if (s.level === 'h3') { %><h3><%= s.heading %></h3><% } else { %><h2><%= s.heading %></h2><% } %><% } %>
+      <%- s.body %>
+    </section>
+  <% }) %>
+<% } %>

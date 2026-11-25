@@ -1,0 +1,33 @@
+<%- include('../partials/head') %>
+<div class="container">
+  <header class="page-head">
+    <p class="eyebrow"><%= state.name %> · India</p>
+    <h1><%= (city.content && city.content.h1) || ('Hotels in ' + city.name + ', ' + state.name) %></h1>
+    <p class="muted"><%= hotels.length %> stays · handpicked hotels, resorts and villas</p>
+  </header>
+
+  <% if (categories.length) { %>
+  <nav class="chips" aria-label="Hotel categories">
+    <% categories.forEach(function (c) { %><a class="chip" href="<%= paths.category(state, city, c) %>"><%= c.name %></a><% }) %>
+  </nav>
+  <% } %>
+
+  <%- include('../partials/content', { content: city.content }) %>
+
+  <section class="block">
+    <h2>All hotels in <%= city.name %></h2>
+    <div class="grid cards-3">
+      <% hotels.forEach(function (h) { %><%- include('../partials/hotel-card', { h: h, url: paths.hotel(state, city, h) }) %><% }) %>
+    </div>
+  </section>
+
+  <% if (articles.length) { %>
+  <section class="block">
+    <h2><%= city.name %> travel guides</h2>
+    <ul class="link-list">
+      <% articles.forEach(function (a) { %><li><a href="<%= paths.article(state, city, a) %>"><%= a.title %></a></li><% }) %>
+    </ul>
+  </section>
+  <% } %>
+</div>
+<%- include('../partials/footer') %>

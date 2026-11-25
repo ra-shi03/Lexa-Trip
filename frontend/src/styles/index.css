@@ -1,0 +1,81 @@
+@import "tailwindcss";
+@import "./components.css" layer(components);
+
+/*
+ * Design tokens.
+ * Every colour/font/radius is a CSS variable (--lt-*) that SettingsContext overwrites at
+ * runtime with the values configured in Master Admin → Appearance. Tailwind utilities map
+ * onto those variables, so `bg-primary`, `text-ink`, `border-line`, `rounded-brand` etc.
+ * re-theme the whole app (web + panels) without a rebuild.
+ */
+@theme inline {
+  --color-primary: var(--lt-primary);
+  --color-primary-hover: var(--lt-primary-hover);
+  --color-primary-soft: var(--lt-primary-soft);
+  --color-secondary: var(--lt-secondary);
+  --color-accent: var(--lt-accent);
+  --color-bg: var(--lt-bg);
+  --color-surface: var(--lt-surface);
+  --color-card: var(--lt-card);
+  --color-ink: var(--lt-text);
+  --color-muted: var(--lt-muted);
+  --color-line: var(--lt-border);
+  --color-success: var(--lt-success);
+  --color-warning: var(--lt-warning);
+  --color-danger: var(--lt-danger);
+
+  --font-sans: var(--lt-font), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--lt-heading-font), var(--lt-font), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-brand: var(--lt-radius);
+  --radius-brand-lg: calc(var(--lt-radius) + 4px);
+  --shadow-card: 0 1px 2px rgb(20 33 61 / 0.04), 0 4px 16px rgb(20 33 61 / 0.06);
+  --shadow-pop: 0 12px 40px rgb(20 33 61 / 0.14);
+}
+
+/* Defaults = LexaTrip logo palette (orange + navy on white) */
+:root {
+  --lt-primary: #f26b1d;
+  --lt-primary-hover: #d9560b;
+  --lt-primary-soft: #fff1e8;
+  --lt-secondary: #14213d;
+  --lt-accent: #f7931e;
+  --lt-bg: #ffffff;
+  --lt-surface: #f7f8fa;
+  --lt-card: #ffffff;
+  --lt-text: #14213d;
+  --lt-muted: #5b6478;
+  --lt-border: #e6e8ee;
+  --lt-success: #16a34a;
+  --lt-warning: #d97706;
+  --lt-danger: #dc2626;
+  --lt-font: "Plus Jakarta Sans";
+  --lt-heading-font: "Plus Jakarta Sans";
+  --lt-radius: 12px;
+  color-scheme: light;
+}
+
+/* Optional dark mode (Admin → Appearance → Mode) */
+:root[data-theme="dark"] {
+  --lt-bg: #0b1222;
+  --lt-surface: #111a2e;
+  --lt-card: #14203a;
+  --lt-text: #e8ecf5;
+  --lt-muted: #9aa5bd;
+  --lt-border: #23304d;
+  --lt-primary-soft: #3a2314;
+  color-scheme: dark;
+}
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, h4 { @apply font-display text-secondary tracking-tight; }
+  :root[data-theme="dark"] h1, :root[data-theme="dark"] h2, :root[data-theme="dark"] h3, :root[data-theme="dark"] h4 { color: var(--lt-text); }
+  ::selection { background: var(--lt-primary-soft); }
+  input, select, textarea, button { font: inherit; }
+  input[type="range"], input[type="checkbox"], input[type="radio"] { accent-color: var(--lt-primary); }
+}

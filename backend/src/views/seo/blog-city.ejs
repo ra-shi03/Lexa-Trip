@@ -1,0 +1,21 @@
+<%- include('../partials/head') %>
+<div class="container">
+  <header class="page-head">
+    <p class="eyebrow"><%= state.name %> · Travel guide</p>
+    <h1><%= city.name %> travel guide</h1>
+    <% if (city.description) { %><p class="lead"><%= city.description %></p><% } %>
+  </header>
+  <div class="grid cards-3">
+    <% articles.forEach(function (a) { %>
+      <a class="card" href="<%= paths.article(state, city, a) %>">
+        <% if (a.coverImage && a.coverImage.url) { %><img src="<%= a.coverImage.url %>" alt="<%= a.coverImage.alt || a.title %>" loading="lazy" width="400" height="240" /><% } %>
+        <div class="card-body"><h2 class="h3"><%= a.title %></h2><% if (a.excerpt) { %><p class="muted clamp-2"><%= a.excerpt %></p><% } %></div>
+      </a>
+    <% }) %>
+  </div>
+  <%- include('../partials/links', {
+    heading: 'Where to stay in ' + city.name,
+    links: hotels.map(function (h) { return { label: h.name, url: paths.hotel(state, city, h) }; }).concat(hotels.length ? [{ label: 'All hotels in ' + city.name, url: paths.cityHotels(state, city) }] : [])
+  }) %>
+</div>
+<%- include('../partials/footer') %>

@@ -1,0 +1,13 @@
+<% if (faqs && faqs.length) { %>
+<section class="block" id="faqs">
+  <h2>Frequently asked questions</h2>
+  <div class="faq-list">
+    <% faqs.forEach(function (f) { %>
+      <details class="faq">
+        <summary><%= f.question %></summary>
+        <div class="prose"><%- f.answer %></div>
+      </details>
+    <% }) %>
+  </div>
+</section>
+<% } %>

@@ -1,0 +1,40 @@
+{
+  "name": "lexatrip-backend",
+  "version": "1.0.0",
+  "description": "LexaTrip \u2014 MVC monolithic Express + MongoDB API, SEO SSR pages, admin/vendor services",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "seed": "node src/seed/seed.js",
+    "start:cluster": "CLUSTER_WORKERS=-1 NODE_ENV=production node server.js",
+    "indexes": "node src/seed/syncIndexes.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.2",
+    "cors": "^2.8.6",
+    "csv-parse": "^7.0.3",
+    "dotenv": "^18.0.10",
+    "ejs": "^7.0.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.5",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.12.2",
+    "morgan": "^1.12.1",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.6.1",
+    "sanitize-html": "^2.18.2",
+    "sharp": "^0.35.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

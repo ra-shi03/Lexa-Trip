@@ -1,0 +1,103 @@
+<%- include('../partials/head') %>
+<article class="container itinerary-page">
+  <header class="page-head">
+    <p class="eyebrow"><%= it.durationDays %>-day itinerary<%= it.travellerType ? ' · ' + it.travellerType : '' %> · <a href="<%= paths.hotel(state, city, hotel) %>"><%= hotel.name %></a></p>
+    <h1><%= (it.content && it.content.h1) || it.title %></h1>
+    <% if (it.summary) { %><p class="lead"><%= it.summary %></p><% } %>
+  </header>
+
+  <% var hero = it.heroImage && it.heroImage.url ? it.heroImage : hotel.heroImage; if (hero && hero.url) { %>
+    <img class="hero-main" src="<%= hero.url %>" alt="<%= hero.alt || it.title %>" width="1200" height="600" fetchpriority="high" />
+  <% } %>
+
+  <div class="layout-2col">
+    <div class="main-col">
+      <%- include('../partials/content', { content: it.content }) %>
+
+      <% if (it.days && it.days.length) { %>
+      <section class="block" id="day-wise">
+        <h2>Day-wise plan</h2>
+        <ol class="timeline">
+          <% it.days.forEach(function (d) { %>
+            <li>
+              <div class="day-badge">Day <%= d.day %></div>
+              <div>
+                <h3><%= d.title %></h3>
+                <% if (d.description) { %><div class="prose"><%- d.description %></div><% } %>
+                <% if (d.activities && d.activities.length) { %>
+                  <ul class="activities">
+                    <% d.activities.forEach(function (a) { %><li><% if (a.time) { %><span class="time"><%= a.time %></span><% } %><b><%= a.title %></b><% if (a.description) { %> — <%= a.description %><% } %></li><% }) %>
+                  </ul>
+                <% } %>
+                <% if (d.meals && d.meals.length) { %><p class="small muted">Meals: <%= d.meals.join(', ') %></p><% } %>
+              </div>
+            </li>
+          <% }) %>
+        </ol>
+      </section>
+      <% } %>
+
+      <% if (it.experiences && it.experiences.length) { %>
+      <section class="block">
+        <h2>Experiences &amp; activities</h2>
+        <div class="grid cards-2">
+          <% it.experiences.forEach(function (e) { %><div class="card"><div class="card-body"><h3><%= e.title %></h3><p class="muted"><%= e.description %></p></div></div><% }) %>
+        </div>
+      </section>
+      <% } %>
+
+      <% if (it.dining && it.dining.length) { %>
+      <section class="block">
+        <h2>Dining</h2>
+        <ul class="dining">
+          <% it.dining.forEach(function (d) { %><li><b><%= d.name %></b><%= d.cuisine ? ' · ' + d.cuisine : '' %><%= d.timings ? ' · ' + d.timings : '' %><% if (d.description) { %><br /><span class="muted"><%= d.description %></span><% } %></li><% }) %>
+        </ul>
+      </section>
+      <% } %>
+
+      <% if (it.facilities && it.facilities.length) { %>
+      <section class="block"><h2>Facilities &amp; amenities</h2><ul class="amenity-list"><% it.facilities.forEach(function (f) { %><li><%= f %></li><% }) %></ul></section>
+      <% } %>
+
+      <% if (it.nearbyAttractions && it.nearbyAttractions.length) { %>
+      <section class="block">
+        <h2>Nearby tourist attractions</h2>
+        <ul class="attractions">
+          <% it.nearbyAttractions.forEach(function (a) { %><li><b><%= a.name %></b><%= a.distanceKm ? ' · ' + a.distanceKm + ' km' : '' %><%= a.travelTime ? ' (' + a.travelTime + ')' : '' %><% if (a.description) { %><br /><span class="muted"><%= a.description %></span><% } %></li><% }) %>
+        </ul>
+      </section>
+      <% } %>
+
+      <% var g = it.guestInfo || {}; if (g.bestTimeToVisit || g.howToReach || g.checkInOut || g.whatToPack || (g.tips && g.tips.length) || g.importantNotes) { %>
+      <section class="block">
+        <h2>Guest information</h2>
+        <dl class="policies">
+          <% if (g.bestTimeToVisit) { %><dt>Best time to visit</dt><dd><%= g.bestTimeToVisit %></dd><% } %>
+          <% if (g.howToReach) { %><dt>How to reach</dt><dd><%= g.howToReach %></dd><% } %>
+          <% if (g.checkInOut) { %><dt>Check-in / check-out</dt><dd><%= g.checkInOut %></dd><% } %>
+          <% if (g.whatToPack) { %><dt>What to pack</dt><dd><%= g.whatToPack %></dd><% } %>
+          <% if (g.importantNotes) { %><dt>Important notes</dt><dd><%= g.importantNotes %></dd><% } %>
+        </dl>
+        <% if (g.tips && g.tips.length) { %><ul class="tips"><% g.tips.forEach(function (t) { %><li><%= t %></li><% }) %></ul><% } %>
+      </section>
+      <% } %>
+
+      <%- include('../partials/faqs', { faqs: it.faqs }) %>
+    </div>
+    <aside class="side-col">
+      <div class="card sticky book-box"><div class="card-body">
+        <p class="muted small">Stay at</p>
+        <p class="h3"><%= hotel.name %></p>
+        <% if (it.priceFrom) { %><p class="big-price"><%= fmt(it.priceFrom) %> <span class="muted small">onwards</span></p><% } %>
+        <a class="btn btn-primary btn-block" href="<%= bookUrl %>">Book this stay</a>
+        <a class="btn btn-ghost btn-block" href="<%= paths.hotel(state, city, hotel) %>">View hotel details</a>
+      </div></div>
+    </aside>
+  </div>
+
+  <%- include('../partials/links', {
+    heading: 'More itineraries & links',
+    links: others.map(function (o) { return { label: o.title, url: paths.itinerary(state, city, hotel, o) }; }).concat(it.internalLinks || []).concat([{ label: 'Hotels in ' + city.name, url: paths.cityHotels(state, city) }])
+  }) %>
+</article>
+<%- include('../partials/footer') %>

@@ -1,0 +1,25 @@
+<%- include('../partials/head') %>
+<div class="container">
+  <header class="page-head">
+    <p class="eyebrow"><%= city.name %>, <%= state.name %></p>
+    <h1><%= (category.content && category.content.h1) || (category.name + ' in ' + city.name) %></h1>
+    <p class="muted"><%= hotels.length %> properties</p>
+  </header>
+
+  <%- include('../partials/content', { content: category.content }) %>
+
+  <section class="block">
+    <div class="grid cards-3">
+      <% hotels.forEach(function (h) { %><%- include('../partials/hotel-card', { h: h, url: paths.hotel(state, city, h) }) %><% }) %>
+    </div>
+    <% if (!hotels.length) { %><p class="muted">Hotels for this category are being added. Explore <a href="<%= paths.cityHotels(state, city) %>">all hotels in <%= city.name %></a>.</p><% } %>
+  </section>
+
+  <%- include('../partials/faqs', { faqs: category.faqs }) %>
+
+  <%- include('../partials/links', {
+    heading: 'More stays in ' + city.name,
+    links: [{ label: 'All hotels in ' + city.name, url: paths.cityHotels(state, city) }].concat(siblings.map(function (s) { return { label: s.name + ' in ' + city.name, url: paths.category(state, city, s) }; }))
+  }) %>
+</div>
+<%- include('../partials/footer') %>

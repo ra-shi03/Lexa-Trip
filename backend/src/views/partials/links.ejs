@@ -1,0 +1,8 @@
+<% if (links && links.length) { %>
+<section class="block">
+  <h2><%= typeof heading !== 'undefined' ? heading : 'Related links' %></h2>
+  <ul class="link-list">
+    <% links.forEach(function (l) { %><li><a href="<%= l.url %>"><%= l.label %></a></li><% }) %>
+  </ul>
+</section>
+<% } %>

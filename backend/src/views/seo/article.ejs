@@ -1,0 +1,30 @@
+<%- include('../partials/head') %>
+<article class="container article-page">
+  <header class="page-head narrow">
+    <p class="eyebrow"><%= city ? city.name + ', ' : '' %><%= state.name %></p>
+    <h1><%= (a.content && a.content.h1) || a.title %></h1>
+    <p class="muted small">By <%= a.authorName %><% if (a.publishedAt) { %> · <time datetime="<%= new Date(a.publishedAt).toISOString() %>"><%= new Date(a.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) %></time><% } %></p>
+  </header>
+  <% if (a.coverImage && a.coverImage.url) { %><img class="hero-main narrow" src="<%= a.coverImage.url %>" alt="<%= a.coverImage.alt || a.title %>" width="1000" height="560" fetchpriority="high" /><% } %>
+
+  <div class="narrow">
+    <% if (a.excerpt) { %><p class="lead"><%= a.excerpt %></p><% } %>
+    <%- include('../partials/content', { content: a.content }) %>
+
+    <% if (a.hotels && a.hotels.length) { %>
+    <section class="block">
+      <h2>Stays mentioned in this guide</h2>
+      <div class="grid cards-2">
+        <% a.hotels.forEach(function (h) { %><%- include('../partials/hotel-card', { h: h, url: paths.hotel(h.state, h.city, h) }) %><% }) %>
+      </div>
+    </section>
+    <% } %>
+
+    <%- include('../partials/faqs', { faqs: a.faqs }) %>
+    <%- include('../partials/links', {
+      heading: 'Keep reading',
+      links: (a.internalLinks || []).concat(more.map(function (m) { return { label: m.title, url: paths.article(state, m.city, m) }; }))
+    }) %>
+  </div>
+</article>
+<%- include('../partials/footer') %>
