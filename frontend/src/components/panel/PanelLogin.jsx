@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, LayoutDashboard, SlidersHorizontal, AlertCircle, TriangleAlert, Loader2, Check } from 'lucide-react';
 import { Logo } from '../layout/Logo';
 import { useSettings } from '../../context/SettingsContext';
-import { cx } from '../../lib/format';
+import { cx, platformParts } from '../../lib/format';
 
 const REMEMBER = 'lt_admin_email';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -75,7 +75,7 @@ export function PanelLogin({ title = 'Admin sign in', suffix = 'Admin', note, on
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-white/50">© {new Date().getFullYear()} {brand.appName || 'LexaTrip'}</p>
+        <p className="relative text-xs text-white/50">© {platformParts().year} {brand.appName || 'LexaTrip'}</p>
       </aside>
 
       {/* form side */}

@@ -4,12 +4,13 @@ import { Briefcase, User, User as UserIcon, Users, Heart, Bell, LifeBuoy, LogOut
 import { compressForUpload } from '@/lib/compressImage';
 import { Container } from '@/components/layout/UserLayout';
 import { PropertyCard } from '@/components/stay/StayComponents';
-import { Button, Input, Select, Tabs, EmptyState, Skeleton, StatusBadge, Modal, Textarea, Avatar, ErrorState, Badge } from '@/components/ui';
+import { Button, Input, Select, Tabs, EmptyState, StatusBadge, Modal, Textarea, Avatar, ErrorState, Badge } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
+import { TripCardSkeleton, ListSkeleton, ListRowSkeleton, PropertyCardSkeleton } from '../../Skeletons';
 import { dateLabel, money, timeAgo, cx, titleCase, isoDate } from '@/lib/format';
 
 export function AccountLayout() {
@@ -206,7 +207,7 @@ export function Trips() {
         </div>
       </div>
       <div className="space-y-3">
-        {loading && Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28" />)}
+        {loading && Array.from({ length: 3 }).map((_, i) => <TripCardSkeleton key={i} />)}
         {error && <ErrorState error={error} onRetry={reload} />}
         {!loading && !data?.length && <div className="card"><EmptyState icon={Briefcase} title={`No ${tab} trips`} text="When you book, your trips will show up here." action={<Button to="/search">Start exploring</Button>} /></div>}
         {data?.map((b) => {
@@ -248,7 +249,7 @@ export function Travellers() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between"><h1 className="text-xl font-extrabold">Saved travellers</h1><Button size="sm" icon={Plus} onClick={() => setEdit({ ...EMPTY_T })}>Add traveller</Button></div>
-      {loading ? <Skeleton className="h-24" /> : !data?.length ? <div className="card"><EmptyState icon={Users} title="No saved travellers" text="Save family & friends to book faster." /></div> : (
+      {loading ? <ListSkeleton rows={2} avatar /> : !data?.length ? <div className="card"><EmptyState icon={Users} title="No saved travellers" text="Save family & friends to book faster." /></div> : (
         <div className="grid gap-3 sm:grid-cols-2">
           {data.map((t) => (
             <div key={t._id} className="card card-pad flex items-start justify-between gap-3">
@@ -278,7 +279,7 @@ export function Saved() {
   return (
     <div>
       <h1 className="mb-4 text-xl font-extrabold">Saved stays</h1>
-      {loading ? <Skeleton className="h-48" /> : !data?.length ? <div className="card"><EmptyState icon={Heart} title="Nothing saved yet" text="Tap the heart on any stay to save it here." /></div> : <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">{data.map((p) => <PropertyCard key={p._id} p={p} />)}</div>}
+      {loading ? <div className="grid gap-6 sm:grid-cols-2">{[0, 1].map((i) => <PropertyCardSkeleton key={i} />)}</div> : !data?.length ? <div className="card"><EmptyState icon={Heart} title="Nothing saved yet" text="Tap the heart on any stay to save it here." /></div> : <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">{data.map((p) => <PropertyCard key={p._id} p={p} />)}</div>}
     </div>
   );
 }
@@ -289,7 +290,7 @@ export function Notifications() {
     <div>
       <div className="mb-4 flex items-center justify-between"><h1 className="text-xl font-extrabold">Notifications</h1><Button size="sm" variant="outline" onClick={async () => { await api.post('/me/notifications/read'); reload(); }}>Mark all read</Button></div>
       <div className="card divide-y divide-line">
-        {loading && <Skeleton className="m-4 h-16" />}
+        {loading && Array.from({ length: 4 }).map((_, i) => <ListRowSkeleton key={i} />)}
         {!loading && !data?.length && <EmptyState icon={Bell} title="You’re all caught up" />}
         {data?.map((n) => (
           <Link key={n._id} to={n.data?.bookingId ? `/booking/${n.data.bookingId}` : '#'} className={cx('flex gap-3 p-4 hover:bg-surface', !n.read && 'bg-primary-soft/30')}>

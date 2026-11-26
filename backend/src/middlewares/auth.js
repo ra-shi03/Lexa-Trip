@@ -1,15 +1,10 @@
-import jwt from 'jsonwebtoken';
-import { env } from '../config/env.js';
 import { ApiError } from '../utils/ApiError.js';
 import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
 import Admin from '../models/Admin.js';
+import { verifyAccessToken } from '../services/token.service.js';
 
 const MODELS = { user: User, vendor: Vendor, admin: Admin };
-
-const JWT_OPTS = { issuer: 'lexatrip' };
-/** Audience = account type, so a guest token can never be replayed against admin/vendor APIs. */
-export const signToken = (id, type) => jwt.sign({ id, type }, env.jwtSecret, { ...JWT_OPTS, algorithm: 'HS256', audience: type, expiresIn: type === 'admin' ? '12h' : env.jwtExpiresIn });
 
 function readToken(req) {
   const h = req.headers.authorization || '';
@@ -21,9 +16,10 @@ async function resolve(req, type) {
   if (!token) return null;
   let payload;
   try {
-    payload = jwt.verify(token, env.jwtSecret, { ...JWT_OPTS, algorithms: ['HS256'], audience: type });
-  } catch {
-    throw ApiError.unauthorized('Session expired, please sign in again');
+    payload = verifyAccessToken(token, type);
+  } catch (e) {
+    // TOKEN_EXPIRED → the client silently renews via POST /auth/<type>/refresh and retries
+    throw new ApiError(401, 'Session expired, please sign in again', { code: e.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID' });
   }
   if (payload.type !== type) return null;
   const account = await MODELS[type].findById(payload.id);

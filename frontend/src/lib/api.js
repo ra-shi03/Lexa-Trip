@@ -24,7 +24,8 @@ const roleForUrl = (url = '') => {
 };
 
 export const API_BASE = `${import.meta.env.VITE_API_URL || ''}/api/v1`;
-const http = axios.create({ baseURL: API_BASE, timeout: 30000, headers: { 'X-Client': 'web' } });
+// withCredentials: the refresh token travels in an httpOnly cookie (never readable from JS)
+const http = axios.create({ baseURL: API_BASE, timeout: 30000, withCredentials: true, headers: { 'X-Client': 'web' } });
 
 const MAX_RETRIES = 2;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -46,6 +47,45 @@ http.interceptors.request.use((config) => {
   config.headers['X-Request-Id'] = (crypto.randomUUID?.() || String(Date.now()));
   return config;
 });
+
+/**
+ * Sessions: the access token (15 min) is in localStorage; the refresh token is an httpOnly cookie per audience.
+ * On a 401 we renew once via POST /auth/<role>/refresh and replay the request. Concurrent 401s share one refresh
+ * (in this tab), and a Web Lock serialises refreshes across tabs — the server rotates refresh tokens, so two
+ * parallel refreshes would otherwise race.
+ */
+const NO_REFRESH = /^\/auth\/(user|vendor|admin)\/(send-otp|verify-otp|login|register|refresh|logout)/;
+const inflight = {};
+export function refreshSession(role, stale = tokens.get(role)) {
+  if (inflight[role]) return inflight[role];
+  const run = async () => {
+    const current = tokens.get(role);
+    if (current && current !== stale) return current; // another tab renewed it while we waited for the lock
+    try {
+      const res = await axios.post(`${API_BASE}/auth/${role}/refresh`, {}, { withCredentials: true, timeout: 15000, headers: { 'X-Client': 'web' } });
+      const t = res.data?.data?.accessToken;
+      if (!t) throw new Error('No access token');
+      tokens.set(role, t);
+      return t;
+    } catch (e) {
+      if (e.response?.data?.details?.code === 'REFRESH_RACE') { // a parallel refresh won; pick up its token
+        await sleep(600);
+        const now = tokens.get(role);
+        if (now && now !== stale) return now;
+      }
+      throw e;
+    }
+  };
+  const p = (navigator.locks?.request ? navigator.locks.request(`lt-refresh-${role}`, run) : run());
+  inflight[role] = p.finally(() => { inflight[role] = null; });
+  return inflight[role];
+}
+
+/** Revokes this device's refresh token on the server (best effort) and drops the local access token. */
+export async function endSession(role) {
+  tokens.clear(role); // first, so a quick re-login can't be wiped by this call finishing late
+  try { await axios.post(`${API_BASE}/auth/${role}/logout`, {}, { withCredentials: true, timeout: 8000, headers: { 'X-Client': 'web' } }); } catch { /* offline: the cookie still expires */ }
+}
 
 const listeners = new Set();
 export const onUnauthorized = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
@@ -69,10 +109,26 @@ http.interceptors.response.use(
 
     let announced = false;
     if (status === 401) {
-      // token expired/invalid → drop the session; <Protected> then redirects to the right login.
-      // (a 401 WITHOUT a stored token is e.g. a wrong password — the page shows that message itself)
       const role = roleForUrl(cfg.url);
-      if (tokens.get(role)) { announced = true; tokens.clear(role); listeners.forEach((fn) => fn(role)); notify('info', 'Your session has expired. Please sign in again.'); }
+      // 2) access token expired → renew silently with the refresh token and replay the request once
+      if (tokens.get(role) && !NO_REFRESH.test(cfg.url || '') && !cfg.__refreshed) {
+        cfg.__refreshed = true;
+        const sent = String(cfg.headers?.Authorization || '').replace(/^Bearer /, '') || undefined;
+        try {
+          await refreshSession(role, sent);
+          return http.request(cfg); // request interceptor attaches the new token
+        } catch (re) {
+          if (re.response?.status !== 401) { // network trouble while renewing: keep the session, report the failure
+            notify('error', 'Cannot reach the server. Check your connection.');
+            const e = new Error('Cannot reach the server. Check your connection.');
+            e.status = status; e.silent = true;
+            return Promise.reject(e);
+          }
+        }
+      }
+      // refresh token missing/expired/revoked → drop the session; <Protected> then redirects to the right login.
+      // (a 401 WITHOUT a stored token is e.g. a wrong password — the page shows that message itself)
+      if (tokens.get(role) && !NO_REFRESH.test(cfg.url || '')) { announced = true; tokens.clear(role); listeners.forEach((fn) => fn(role)); notify('info', 'Your session has expired. Please sign in again.'); }
     } else if (status === 429) {
       const wait = Number(err.response?.headers?.['retry-after']);
       message = `${message}${wait ? ` (try again in ${wait >= 60 ? `${Math.ceil(wait / 60)} min` : `${wait}s`})` : ''}`;

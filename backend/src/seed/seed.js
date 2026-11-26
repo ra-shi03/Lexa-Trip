@@ -87,6 +87,7 @@ async function run() {
 
   // ── Catalogue ──
   const cats = await Category.insertMany([
+    { name: 'Deals of the day', slug: 'deals-of-the-day', icon: 'badge-percent', sortOrder: 0, kind: 'deals', description: 'Stays running a vendor deal today' }, // auto-filled collection
     { name: 'Hotels', slug: 'hotels', icon: 'building-2', sortOrder: 1 },
     { name: 'Villas', slug: 'villas', icon: 'home', sortOrder: 2 },
     { name: 'Resorts', slug: 'resorts', icon: 'palmtree', sortOrder: 3 },

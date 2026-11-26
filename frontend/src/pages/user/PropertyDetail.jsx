@@ -21,7 +21,7 @@ export default function PropertyDetail() {
   const { user, update } = useAuth();
   const { feature } = useSettings();
   const [gallery, setGallery] = useState(false);
-  const { data, loading, error, reload } = useApi(() => api.get(`/public/properties/${slug}`), [slug]);
+  const { data, loading, error, reload } = useApi(() => api.get(`/public/properties/${slug}`), [slug], { live: 'content' });
   const p = data?.property;
   const rateKey = `${p?._id}-${sp.toString()}`;
   const { data: rates, loading: ratesLoading } = useApi(() => api.get(`/public/properties/${p._id}/rates`, { checkIn: q.checkIn, checkOut: q.checkOut, rooms: q.rooms, adults: q.adults, children: q.children }), [rateKey], { enabled: Boolean(p?._id) });

@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { aiLimiter } from '../middlewares/security.js';
+import { aiLimiter, liveLimiter } from '../middlewares/security.js';
+import { liveStream } from '../services/live.service.js';
 import * as pub from '../controllers/public/public.controller.js';
 import * as travel from '../controllers/public/travel.controller.js';
 import * as ai from '../controllers/public/ai.controller.js';
@@ -16,6 +17,7 @@ r.get('/brand/icon/:size.png', async (req, res) => {
   res.type('image/png').set('Cache-Control', 'public, max-age=3600').send(await brandIcon(size));
 });
 r.get('/settings', pub.settings);
+r.get('/live', liveLimiter, liveStream); // SSE: admin changes → website/app re-fetch without a refresh
 r.get('/home', pub.home);
 r.get('/categories', pub.categories);
 r.get('/amenities', pub.amenities);

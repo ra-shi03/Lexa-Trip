@@ -4,11 +4,12 @@ import { Bus as BusIcon, Snowflake, BedDouble, Star, ArrowRight, Info } from 'lu
 import { Container } from '../Container';
 import { BusSearchForm } from '@/components/search/SearchForms';
 import { PaymentStep } from '@/components/travel/PaymentStep';
-import { Button, Skeleton, EmptyState, ErrorState, PageLoader, Badge, Input, Select, Stepper, Alert } from '@/components/ui';
+import { Button, Skeleton, EmptyState, ErrorState, Badge, Input, Select, Stepper, Alert } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { SeatMapSkeleton } from '../Skeletons';
 import { money, time, duration, dateFull, cx } from '@/lib/format';
 
 export function BusSearchPage() {
@@ -87,7 +88,7 @@ export function BusSeatsPage() {
   const [booking, setBooking] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  if (loading) return <PageLoader />;
+  if (loading) return <SeatMapSkeleton />;
   if (error) return <ErrorState error={error} />;
   const { trip, decks } = data;
   const all = decks.flatMap((d) => d.rows.flat()).filter(Boolean);

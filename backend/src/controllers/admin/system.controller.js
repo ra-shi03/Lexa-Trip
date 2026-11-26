@@ -8,13 +8,14 @@ import { audit } from '../../services/audit.service.js';
 import { publicUrlFor } from '../../middlewares/upload.js';
 import { env } from '../../config/env.js';
 import { ok } from '../../utils/response.js';
+import { isValidTimezone } from '../../utils/clock.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { buildListQuery, pageMeta } from '../../utils/queryBuilder.js';
 
 /** Which permission is needed to edit each settings section */
 export const SECTION_PERMISSION = {
   brand: 'appearance', theme: 'appearance', features: 'appearance', homeSections: 'appearance', home: 'appearance', app: 'appearance', auth: 'appearance', social: 'content',
-  booking: 'integrations', integrations: 'integrations', seo: 'seo', tax: 'finance', commission: 'commission',
+  booking: 'integrations', regional: 'integrations', integrations: 'integrations', seo: 'seo', tax: 'finance', commission: 'commission',
 };
 
 export async function getAllSettings(req, res) {
@@ -44,6 +45,12 @@ export async function updateSettings(req, res) {
   const perm = SECTION_PERMISSION[section];
   if (req.admin.role !== 'master' && !req.admin.permissions.includes(perm)) throw ApiError.forbidden();
   if (req.admin.role !== 'master' && ['finance', 'commission'].includes(perm)) throw ApiError.forbidden('Restricted to the master admin');
+  // Platform timezone changes what "today" means for every booking and deal → master admin only, valid IANA zone only
+  if (section === 'regional') {
+    if (req.admin.role !== 'master') throw ApiError.forbidden('Only the master admin can change the platform timezone');
+    if (!isValidTimezone(req.body?.timezone)) throw ApiError.badRequest('Choose a valid timezone, e.g. Asia/Kolkata or UTC');
+    req.body = { timezone: req.body.timezone };
+  }
   const s = await updateSettingsSection(section, req.body, req.admin._id);
   audit(req, `settings.${section}`, 'Setting', null);
   ok(res, s, undefined, 'Settings saved');

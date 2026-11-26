@@ -47,8 +47,10 @@ const bookingSchema = new mongoose.Schema(
 
     pricing: {
       currency: { type: String, default: 'INR' },
-      nightly: [{ date: Date, amount: Number }],
+      nightly: [{ date: Date, amount: Number, original: Number }],
       baseAmount: Number,
+      dealSavings: Number, // vendor deal discount already inside baseAmount
+      dealTitle: String,
       extraGuestAmount: Number,
       mealPlanAmount: Number,
       discount: Number,

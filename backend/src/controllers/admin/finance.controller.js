@@ -9,6 +9,7 @@ import { ApiError } from '../../utils/ApiError.js';
 import { buildListQuery, pageMeta } from '../../utils/queryBuilder.js';
 import { toDay, addDays, toCsv } from '../../utils/helpers.js';
 
+import { today, daysFromToday, dayStart, platformTimezone } from '../../utils/clock.js';
 /** All handlers here are guarded by revenue permissions → master admin only. */
 
 export async function transactions(req, res) {
@@ -59,7 +60,7 @@ export async function payouts(req, res) {
 
 /** Groups completed, unpaid bookings per vendor into payout records for a period */
 export async function generatePayouts(req, res) {
-  const to = req.body.to ? addDays(req.body.to, 1) : toDay(new Date());
+  const to = req.body.to ? addDays(req.body.to, 1) : today();
   const from = req.body.from ? toDay(req.body.from) : addDays(to, -30);
   const due = await Booking.aggregate([
     { $match: { type: 'hotel', payout: null, status: { $in: ['checked_out', 'completed', 'cancelled'] }, vendorPayoutAmount: { $gt: 0 }, checkOut: { $gte: from, $lt: to } } },
@@ -88,13 +89,14 @@ export async function updatePayout(req, res) {
 }
 
 export async function revenueReport(req, res) {
-  const from = req.query.from ? toDay(req.query.from) : addDays(new Date(), -30);
-  const to = req.query.to ? addDays(req.query.to, 1) : addDays(new Date(), 1);
+  // createdAt is a timestamp → day boundaries in the platform timezone
+  const from = dayStart(req.query.from ? toDay(req.query.from) : daysFromToday(-30));
+  const to = dayStart(req.query.to ? addDays(req.query.to, 1) : daysFromToday(1));
   const match = { createdAt: { $gte: from, $lt: to }, paymentStatus: { $in: ['paid', 'partially_refunded', 'refunded'] } };
   const [byService, byVendor, daily] = await Promise.all([
     Booking.aggregate([{ $match: match }, { $group: { _id: '$type', bookings: { $sum: 1 }, gross: { $sum: '$pricing.totalAmount' }, taxes: { $sum: '$pricing.taxes' }, discount: { $sum: '$pricing.discount' }, commission: { $sum: '$commission.amount' }, refunds: { $sum: { $ifNull: ['$cancellation.refundAmount', 0] } } } }]),
     Booking.aggregate([{ $match: { ...match, type: 'hotel' } }, { $group: { _id: '$vendor', bookings: { $sum: 1 }, gross: { $sum: '$pricing.totalAmount' }, commission: { $sum: '$commission.amount' }, payout: { $sum: '$vendorPayoutAmount' } } }, { $sort: { gross: -1 } }, { $limit: 50 }]),
-    Booking.aggregate([{ $match: match }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, gross: { $sum: '$pricing.totalAmount' }, commission: { $sum: '$commission.amount' } } }, { $sort: { _id: 1 } }]),
+    Booking.aggregate([{ $match: match }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: platformTimezone() } }, gross: { $sum: '$pricing.totalAmount' }, commission: { $sum: '$commission.amount' } } }, { $sort: { _id: 1 } }]),
   ]);
   const vendors = await Vendor.find({ _id: { $in: byVendor.map((v) => v._id) } }).select('businessName').lean();
   const vmap = Object.fromEntries(vendors.map((v) => [String(v._id), v.businessName]));

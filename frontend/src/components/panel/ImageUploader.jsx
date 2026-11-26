@@ -71,3 +71,60 @@ export function SingleImage({ value, onChange, uploadUrl, label = 'Image', field
     </div>
   );
 }
+
+/**
+ * Compact image field (icons, tiles, splash/onboarding art): thumbnail + Upload / URL / Remove.
+ * `aspect` = height ÷ width of the thumbnail (1 = square, 16/9 = portrait phone).
+ *   <SquareImage value={url} onChange={(url) => …} uploadUrl="/admin/uploads/images" hint="176 × 176 px" />
+ */
+export function SquareImage({ value, onChange, uploadUrl, hint, size = 72, aspect = 1, compact, field = 'images' }) {
+  const ref = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  const upload = async (files) => {
+    if (!files?.length) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      (await compressForUpload([files[0]])).forEach((f) => fd.append(field, f));
+      const { data } = await api.upload(uploadUrl, fd);
+      if (data?.[0]?.url) onChange(data[0].url);
+    } catch (e) { toast.error(e); } finally { setBusy(false); if (ref.current) ref.current.value = ''; }
+  };
+  const pasteUrl = () => { const u = window.prompt('Paste image URL'); if (u) onChange(u.trim()); };
+  const input = <input ref={ref} type="file" accept="image/png,image/webp,image/jpeg,image/svg+xml" hidden onChange={(e) => upload(e.target.files)} />;
+  const thumb = (
+    <button type="button" onClick={() => ref.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files); }}
+      style={{ width: size, height: Math.round(size * aspect) }} aria-label={value ? 'Replace image' : 'Upload image'}
+      className="checker grid flex-none place-items-center overflow-hidden rounded-2xl border-2 border-dashed border-line text-muted transition hover:border-primary hover:text-primary">
+      {busy ? <span className="text-[11px] font-semibold">Uploading…</span> : value ? <Img src={value} alt="" className="h-full w-full" /> : <Upload size={18} />}
+    </button>
+  );
+  // compact: thumbnail with icon-only actions underneath (for dense lists)
+  if (compact) {
+    return (
+      <div className="flex flex-col items-center gap-1" style={{ width: Math.max(size, 84) }}>
+        {thumb}
+        <div className="flex">
+          <button type="button" onClick={pasteUrl} title="Use an image URL" aria-label="Use an image URL" className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-surface hover:text-ink"><Link2 size={14} /></button>
+          {value && <button type="button" onClick={() => onChange('')} title="Remove image" aria-label="Remove image" className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-surface hover:text-danger"><X size={14} /></button>}
+        </div>
+        {input}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-4">
+      {thumb}
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          <Button size="xs" variant="soft" icon={Upload} loading={busy} onClick={() => ref.current?.click()}>{value ? 'Replace' : 'Upload'}</Button>
+          <Button size="xs" variant="ghost" icon={Link2} onClick={pasteUrl}>URL</Button>
+          {value && <Button size="xs" variant="ghost" icon={X} className="text-danger" onClick={() => onChange('')}>Remove</Button>}
+        </div>
+        {hint && <p className="text-xs text-muted">{hint}</p>}
+      </div>
+      {input}
+    </div>
+  );
+}

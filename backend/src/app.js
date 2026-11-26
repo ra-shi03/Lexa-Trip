@@ -21,6 +21,7 @@ import ssrRoutes from './routes/ssr.routes.js';
 import { webhook as paymentWebhook } from './controllers/user/payment.controller.js';
 import { channelManager } from './services/channelManager/index.js';
 import { UPLOAD_DIR } from './middlewares/upload.js';
+import { formatDateTime } from './utils/clock.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +30,7 @@ export function createApp() {
   app.set('trust proxy', env.trustProxy);
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
+  app.locals.formatDateTime = formatDateTime; // SEO templates show dates in the platform timezone
   app.disable('x-powered-by');
 
   app.use(

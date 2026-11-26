@@ -1,10 +1,15 @@
 import Setting from '../models/Setting.js';
 import { DEFAULT_SETTINGS } from '../constants/defaultSettings.js';
+import { publish, onLive } from './live.service.js';
+import { setPlatformTimezone, platformTimezone, offsetLabel } from '../utils/clock.js';
 
-const SECTIONS = ['brand', 'theme', 'features', 'homeSections', 'home', 'app', 'auth', 'booking', 'tax', 'commission', 'social', 'seo', 'integrations'];
+const SECTIONS = ['brand', 'theme', 'features', 'homeSections', 'home', 'app', 'auth', 'regional', 'booking', 'tax', 'commission', 'social', 'seo', 'integrations'];
 let cache = null;
 let cachedAt = 0;
 const TTL = 30_000;
+// Any process (cluster worker) drops its cache as soon as settings change anywhere, before clients re-fetch
+// …and reloads so the platform clock (timezone) switches on every worker too
+onLive((e) => { if (e.topic === 'settings') { cache = null; getSettings().catch(() => {}); } });
 
 const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
 function deepMerge(base, over) {
@@ -20,6 +25,7 @@ export async function getSettings({ fresh = false } = {}) {
   const merged = {};
   for (const s of SECTIONS) merged[s] = deepMerge(DEFAULT_SETTINGS[s], doc[s] ?? undefined);
   merged.updatedAt = doc.updatedAt;
+  setPlatformTimezone(merged.regional?.timezone);
   cache = merged;
   cachedAt = Date.now();
   return merged;
@@ -33,7 +39,9 @@ export async function updateSettingsSection(section, value, adminId) {
     { upsert: true, new: true },
   );
   cache = null;
-  return getSettings({ fresh: true });
+  const fresh = await getSettings({ fresh: true });
+  publish('settings', { scope: section });
+  return fresh;
 }
 
 /** What the public web/app clients are allowed to see (no integration internals). */
@@ -47,6 +55,7 @@ export async function getPublicSettings() {
     home: s.home,
     app: s.app,
     auth: s.auth,
+    regional: { timezone: platformTimezone(), offset: offsetLabel() },
     booking: { currency: s.booking.currency, maxRoomsPerBooking: s.booking.maxRoomsPerBooking, maxNights: s.booking.maxNights },
     social: s.social,
     seo: { siteName: s.seo.siteName, defaultTitle: s.seo.defaultTitle, defaultDescription: s.seo.defaultDescription, titleSuffix: s.seo.titleSuffix },

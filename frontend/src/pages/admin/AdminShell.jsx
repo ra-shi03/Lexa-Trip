@@ -1,7 +1,7 @@
 import { Navigate, useNavigate } from 'react-router';
 import {
   LayoutDashboard, Users, Store, Building2, CalendarDays, CalendarCheck, Receipt, RotateCcw, Wallet, Percent, BarChart3, Layers, MapPin, Tag, Image, FileText,
-  HelpCircle, Star, LifeBuoy, Palette, ToggleLeft, Plug, UserCog, ScrollText, Globe, FolderOpen, FileSpreadsheet, Network, ArrowLeftRight, Images, Bot, Settings, Smartphone, LogIn,
+  HelpCircle, Star, LifeBuoy, Palette, ToggleLeft, Plug, UserCog, ScrollText, Globe, FolderOpen, FileSpreadsheet, Network, ArrowLeftRight, Images, Bot, Settings, Smartphone, LogIn, Globe2,
 } from 'lucide-react';
 import { PanelLayout } from '../../components/layout/PanelLayout';
 import { PanelLogin } from '../../components/panel/PanelLogin';
@@ -35,6 +35,7 @@ export function AdminShell() {
       { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck, perm: 'bookings' },
       { to: '/admin/properties', label: 'Properties', icon: Building2, perm: 'properties' },
       { to: '/admin/inventory', label: 'Inventory', icon: CalendarDays, perm: 'inventory' },
+      { to: '/admin/deals', label: 'Deals & offers', icon: Percent, perm: 'inventory' },
       { to: '/admin/vendors', label: 'Vendors', icon: Store, perm: 'vendors' },
       { to: '/admin/users', label: 'Customers', icon: Users, perm: 'users' },
       { to: '/admin/reviews', label: 'Reviews', icon: Star, perm: 'reviews' },
@@ -73,6 +74,7 @@ export function AdminShell() {
       { to: '/admin/settings/features', label: 'App features', icon: ToggleLeft, perm: 'appearance' },
       { to: '/admin/settings/integrations', label: 'Integrations', icon: Plug, perm: 'integrations' },
       { to: '/admin/settings/business', label: 'Tax & commission', icon: Settings, perm: 'finance' },
+      { to: '/admin/settings/region', label: 'Region & time', icon: Globe2, master: true },
       { to: '/admin/subadmins', label: 'Sub-admins', icon: UserCog, master: true },
       { to: '/admin/audit', label: 'Audit log', icon: ScrollText, master: true },
     ] },

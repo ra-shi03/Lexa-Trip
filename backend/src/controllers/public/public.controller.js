@@ -9,9 +9,20 @@ import { quoteHotel } from '../../services/pricing.service.js';
 import { validateCoupon } from '../../services/pricing.service.js';
 import { AIRPORTS } from '../../services/providers/flight/index.js';
 import { ok } from '../../utils/response.js';
+import { onLive } from '../../services/live.service.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { escapeRegex, addDays } from '../../utils/helpers.js';
 import { MEAL_PLANS } from '../../constants/enums.js';
+import { liveDealPropertyIds, liveDealsByProperty, publicDeal } from '../../services/deal.service.js';
+
+import { daysFromToday } from '../../utils/clock.js';
+/** "Deals of the day" style categories carry how many visible stays run a deal today (for the tile badge). */
+async function withDealCounts(categories) {
+  if (!categories.some((c) => c.kind === 'deals')) return categories;
+  const ids = await liveDealPropertyIds();
+  const live = ids.length ? await Property.countDocuments({ _id: { $in: ids }, status: 'approved', isVisible: true }) : 0;
+  return categories.map((c) => (c.kind === 'deals' ? { ...c, dealCount: live } : c));
+}
 
 const activeWindow = () => {
   const now = new Date();
@@ -30,32 +41,50 @@ export async function settings(_req, res) {
 }
 
 /** Everything the home screen needs in one round-trip (fast first paint on mobile) */
+// The home feed is identical for every visitor → build it once and share it. Dropped as soon as the admin or a
+// vendor deal publishes a change (live.service); the short TTL covers everything else (e.g. rooms selling out).
+const HOME_TTL = 30_000;
+let homeCache = null;
+onLive(() => { homeCache = null; });
+
 export async function home(_req, res) {
-  const [categories, cities, featured, heroBanners, offerBanners, offers] = await Promise.all([
+  if (!homeCache || Date.now() - homeCache.at > HOME_TTL) {
+    const entry = { at: Date.now(), data: buildHome() }; // cache the promise so concurrent requests share one build
+    homeCache = entry;
+    entry.data.catch(() => { if (homeCache === entry) homeCache = null; });
+  }
+  ok(res, await homeCache.data);
+}
+
+async function buildHome() {
+  const [categories, cities, featured, heroBanners, offerBanners, offers, counts, deals] = await Promise.all([
     Category.find({ isActive: true, showOnHome: true }).sort({ sortOrder: 1 }).lean(),
     City.find({ isActive: true, isPopular: true }).sort({ sortOrder: 1 }).limit(12).populate('state', 'name slug').lean(),
     searchProperties({ featured: true, limit: 8 }),
     Banner.find({ ...activeWindow(), placement: 'home_hero' }).sort({ sortOrder: 1 }).lean(),
     Banner.find({ ...activeWindow(), placement: { $in: ['home_offers', 'app_home'] } }).sort({ sortOrder: 1 }).lean(),
     Coupon.find({ ...activeWindow(), isPublic: true }).select('code title description discountType value maxDiscount minAmount services validTo').limit(8).lean(),
-  ]);
-  const counts = await Property.aggregate([
-    { $match: { status: 'approved', isVisible: true } },
-    { $group: { _id: '$address.city', count: { $sum: 1 }, minPrice: { $min: '$minPrice' } } },
+    Property.aggregate([
+      { $match: { status: 'approved', isVisible: true } },
+      { $group: { _id: '$address.city', count: { $sum: 1 }, minPrice: { $min: '$minPrice' } } },
+    ]),
+    searchProperties({ deals: 'today', limit: 8 }), // stays with a vendor deal live today, priced for tonight
   ]);
   const byCity = Object.fromEntries(counts.map((c) => [String(c._id), c]));
-  ok(res, {
-    categories,
+  return {
+    categories: await withDealCounts(categories),
     destinations: cities.map((c) => ({ ...c, propertyCount: byCity[String(c._id)]?.count || 0, priceFrom: byCity[String(c._id)]?.minPrice || null })),
     featured: featured.items,
+    dealStays: deals.items.filter((p) => p.available && p.deal),
+    dealDates: { checkIn: deals.meta.checkIn, checkOut: deals.meta.checkOut },
     heroBanners,
     offerBanners,
     offers,
-  });
+  };
 }
 
 export async function categories(_req, res) {
-  ok(res, await Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean());
+  ok(res, await withDealCounts(await Category.find({ isActive: true }).sort({ sortOrder: 1 }).lean()));
 }
 
 export async function amenities(_req, res) {
@@ -106,7 +135,8 @@ export async function propertyDetail(req, res) {
     Review.find({ property: property._id, status: 'approved' }).sort({ createdAt: -1 }).limit(10).populate('user', 'name').lean(),
     Property.find({ _id: { $ne: property._id }, 'address.city': property.address.city?._id, status: 'approved', isVisible: true }).limit(4).select('name slug images minPrice rating starRating').lean(),
   ]);
-  ok(res, { property, rooms, reviews, similar, mealPlans: MEAL_PLANS });
+  const deal = publicDeal((await liveDealsByProperty([property._id]))[String(property._id)]);
+  ok(res, { property, rooms, reviews, similar, mealPlans: MEAL_PLANS, deal });
 }
 
 /**
@@ -115,7 +145,7 @@ export async function propertyDetail(req, res) {
  */
 export async function propertyRates(req, res) {
   const { checkIn, checkOut, rooms = 1, adults = 2, children = 0 } = req.query;
-  const ci = checkIn || addDays(new Date(), 1);
+  const ci = checkIn || daysFromToday(1);
   const co = checkOut || addDays(ci, 1);
   const roomTypes = await RoomType.find({ property: req.params.id, isActive: true }).lean();
   const out = [];

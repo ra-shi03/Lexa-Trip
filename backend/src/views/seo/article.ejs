@@ -3,7 +3,7 @@
   <header class="page-head narrow">
     <p class="eyebrow"><%= city ? city.name + ', ' : '' %><%= state.name %></p>
     <h1><%= (a.content && a.content.h1) || a.title %></h1>
-    <p class="muted small">By <%= a.authorName %><% if (a.publishedAt) { %> · <time datetime="<%= new Date(a.publishedAt).toISOString() %>"><%= new Date(a.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) %></time><% } %></p>
+    <p class="muted small">By <%= a.authorName %><% if (a.publishedAt) { %> · <time datetime="<%= new Date(a.publishedAt).toISOString() %>"><%= formatDateTime(a.publishedAt, { day: 'numeric', month: 'long', year: 'numeric' }) %></time><% } %></p>
   </header>
   <% if (a.coverImage && a.coverImage.url) { %><img class="hero-main narrow" src="<%= a.coverImage.url %>" alt="<%= a.coverImage.alt || a.title %>" width="1000" height="560" fetchpriority="high" /><% } %>
 

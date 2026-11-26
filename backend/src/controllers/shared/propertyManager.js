@@ -14,7 +14,12 @@ import { ok, created } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { buildListQuery, pageMeta } from '../../utils/queryBuilder.js';
 import { slugify, toDay, addDays, randomCode, toCsv } from '../../utils/helpers.js';
+import Deal from '../../models/Deal.js';
+import { Category } from '../../models/Catalog.js';
+import { prepareDeal, dealRows, dealStatus, DEAL_LIMITS } from '../../services/deal.service.js';
+import { publish } from '../../services/live.service.js';
 
+import { today, daysFromToday, dayStart, platformTimezone } from '../../utils/clock.js';
 /**
  * Property / room / inventory / booking management shared by the Vendor panel
  * (scoped to the logged-in vendor) and the Admin panel (all vendors).
@@ -28,6 +33,14 @@ export function propertyManager(mode) {
     const p = await Property.findOne({ _id: id, ...scope(req) });
     if (!p) throw ApiError.notFound('Property not found');
     return p;
+  }
+
+  /** Collections like "Deals of the day" are filled automatically — they can't be a property's type. */
+  async function assertPropertyType(categoryId) {
+    if (!categoryId) return;
+    const c = await Category.findById(categoryId).select('kind name').lean();
+    if (!c) throw ApiError.badRequest('Unknown property type');
+    if (c.kind === 'deals') throw ApiError.badRequest(`“${c.name}” is filled automatically from live deals — choose a property type like Hotel or Villa`);
   }
 
   async function refreshMinPrice(propertyId) {
@@ -58,6 +71,7 @@ export function propertyManager(mode) {
         if (count >= (req.vendor.permissions?.maxProperties ?? 10)) throw ApiError.forbidden('Property limit reached — contact admin to increase it');
       }
       const body = { ...req.body };
+      await assertPropertyType(body.category);
       body.vendor = isVendor ? req.vendor._id : body.vendor;
       if (!body.vendor) throw ApiError.badRequest('Vendor is required');
       body.slug = slugify(body.slug || `${body.name}-${randomCode('', 4).toLowerCase()}`);
@@ -70,6 +84,7 @@ export function propertyManager(mode) {
     async update(req, res) {
       const p = await ownProperty(req);
       const body = { ...req.body };
+      if (body.category) await assertPropertyType(body.category?._id || body.category);
       delete body.vendor;
       delete body.rating;
       delete body.minPrice;
@@ -127,7 +142,7 @@ export function propertyManager(mode) {
       rt.set(req.body);
       await rt.save();
       if (totalChanged) {
-        await Inventory.updateMany({ roomType: rt._id, date: { $gte: toDay(new Date()) }, source: { $ne: 'channel' } }, { totalRooms: rt.totalRooms });
+        await Inventory.updateMany({ roomType: rt._id, date: { $gte: today() }, source: { $ne: 'channel' } }, { totalRooms: rt.totalRooms });
       }
       await refreshMinPrice(req.params.id);
       ok(res, rt, undefined, 'Room saved');
@@ -143,6 +158,56 @@ export function propertyManager(mode) {
     },
 
     // ─── Pricing rules (weekday / weekend / seasonal / special dates) ───
+    // ─── Deals ("Deals of the day") ───
+    async deals(req, res) {
+      const filter = { ...scope(req) };
+      if (req.query.property) filter.property = String(req.query.property);
+      const rows = await dealRows(filter);
+      const counts = rows.reduce((m, d) => ({ ...m, [d.status]: (m[d.status] || 0) + 1 }), {});
+      const status = String(req.query.status || '');
+      ok(res, status ? rows.filter((d) => (status === 'upcoming' ? ['scheduled', 'paused'].includes(d.status) && d.endDate >= today() : d.status === status)) : rows, { counts, limits: DEAL_LIMITS });
+    },
+    async createDeal(req, res) {
+      if (isVendor && req.vendor.permissions?.canEditPricing === false) throw ApiError.forbidden('Pricing edits are disabled for your account');
+      const p = await ownProperty(req, req.body.property);
+      const deal = await Deal.create({ ...(await prepareDeal(req.body, p)), createdByType: actor(req), createdBy: (req.vendor || req.admin)._id });
+      audit(req, 'deal.create', 'Deal', deal._id, { property: p._id, value: deal.value, discountType: deal.discountType });
+      publish('content', { scope: 'deals' });
+      created(res, { ...deal.toObject(), status: dealStatus(deal) }, dealStatus(deal) === 'live' ? 'Deal is live — guests see it now' : 'Deal scheduled');
+    },
+    async updateDeal(req, res) {
+      if (isVendor && req.vendor.permissions?.canEditPricing === false) throw ApiError.forbidden('Pricing edits are disabled for your account');
+      const deal = await Deal.findOne({ _id: req.params.dealId, ...scope(req) });
+      if (!deal) throw ApiError.notFound('Deal not found');
+      if (dealStatus(deal) === 'ended') throw ApiError.badRequest('This deal has ended — create a new one instead');
+      const p = await ownProperty(req, deal.property);
+      const merged = { ...deal.toObject(), ...req.body, property: deal.property };
+      Object.assign(deal, await prepareDeal(merged, p, { existingId: deal._id }));
+      await deal.save();
+      audit(req, 'deal.update', 'Deal', deal._id, { isActive: deal.isActive, value: deal.value });
+      publish('content', { scope: 'deals' });
+      ok(res, { ...deal.toObject(), status: dealStatus(deal) }, deal.isActive ? 'Deal updated' : 'Deal paused');
+    },
+    /** Ends a running deal today (keeps history); deletes one that never ran. */
+    async removeDeal(req, res) {
+      const deal = await Deal.findOne({ _id: req.params.dealId, ...scope(req) });
+      if (!deal) throw ApiError.notFound('Deal not found');
+      const s = dealStatus(deal);
+      if (s === 'scheduled' || (s === 'paused' && toDay(deal.startDate) > today())) {
+        await deal.deleteOne();
+        audit(req, 'deal.delete', 'Deal', deal._id);
+      } else if (s !== 'ended') {
+        // stop it right now: yesterday as end date → not live any more, history stays for reports
+        deal.endDate = daysFromToday(-1);
+        if (deal.endDate < toDay(deal.startDate)) deal.startDate = deal.endDate;
+        deal.isActive = false;
+        await deal.save();
+        audit(req, 'deal.end', 'Deal', deal._id);
+      }
+      publish('content', { scope: 'deals' });
+      ok(res, null, undefined, s === 'scheduled' ? 'Deal deleted' : 'Deal ended');
+    },
+
     async pricingRules(req, res) {
       await ownProperty(req);
       ok(res, await PricingRule.find({ property: req.params.id }).populate('roomType', 'name').sort({ priority: -1 }).lean());
@@ -166,7 +231,7 @@ export function propertyManager(mode) {
     // ─── Inventory calendar ───
     async inventory(req, res) {
       await ownProperty(req);
-      const from = req.query.from ? toDay(req.query.from) : toDay(new Date());
+      const from = req.query.from ? toDay(req.query.from) : today();
       const days = Math.min(62, Number(req.query.days) || 14);
       ok(res, await inventoryGrid(req.params.id, from, addDays(from, days)), { from, days });
     },
@@ -212,7 +277,7 @@ export function propertyManager(mode) {
     async bookings(req, res) {
       const { filter, skip, limit, page, sort } = buildListQuery(req.query, { searchFields: ['bookingCode', 'primaryGuest.name', 'primaryGuest.phone', 'pnr'], filterFields: ['status', 'type', 'property', 'paymentStatus', 'source'], baseFilter: isVendor ? { vendor: req.vendor._id, type: 'hotel' } : {} });
       if (isVendor) filter.status = filter.status || { $ne: 'pending_payment' };
-      const now = toDay(new Date());
+      const now = today();
       if (req.query.tab === 'upcoming') Object.assign(filter, { checkIn: { $gte: now }, status: { $in: ['confirmed', 'pending_approval'] } });
       if (req.query.tab === 'active') Object.assign(filter, { status: 'checked_in' });
       if (req.query.tab === 'completed') Object.assign(filter, { status: { $in: ['checked_out', 'completed'] } });
@@ -260,15 +325,15 @@ export function propertyManager(mode) {
 
     // ─── Reports ───
     async reports(req, res) {
-      const from = req.query.from ? toDay(req.query.from) : addDays(new Date(), -30);
-      const to = req.query.to ? addDays(req.query.to, 1) : addDays(new Date(), 1);
+      const from = dayStart(req.query.from ? toDay(req.query.from) : daysFromToday(-30)); // createdAt is a timestamp
+      const to = dayStart(req.query.to ? addDays(req.query.to, 1) : daysFromToday(1));
       const match = { ...scope(req), type: 'hotel', createdAt: { $gte: from, $lt: to }, status: { $nin: ['pending_payment', 'failed', 'expired'] } };
       if (req.query.property) match.property = new mongoose.Types.ObjectId(String(req.query.property));
       const [byProperty, byRoom, byStatus, daily] = await Promise.all([
         Booking.aggregate([{ $match: match }, { $group: { _id: '$property', name: { $first: '$snapshot.propertyName' }, bookings: { $sum: 1 }, roomNights: { $sum: { $multiply: ['$nights', '$rooms'] } }, revenue: { $sum: '$pricing.totalAmount' }, commission: { $sum: '$commission.amount' }, payout: { $sum: '$vendorPayoutAmount' }, cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } } } }, { $sort: { revenue: -1 } }]),
         Booking.aggregate([{ $match: match }, { $group: { _id: '$roomType', property: { $first: '$snapshot.propertyName' }, name: { $first: '$snapshot.roomName' }, bookings: { $sum: 1 }, roomNights: { $sum: { $multiply: ['$nights', '$rooms'] } }, revenue: { $sum: '$pricing.totalAmount' } } }, { $sort: { revenue: -1 } }]),
         Booking.aggregate([{ $match: match }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
-        Booking.aggregate([{ $match: match }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, bookings: { $sum: 1 }, revenue: { $sum: '$pricing.totalAmount' } } }, { $sort: { _id: 1 } }]),
+        Booking.aggregate([{ $match: match }, { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: platformTimezone() } }, bookings: { $sum: 1 }, revenue: { $sum: '$pricing.totalAmount' } } }, { $sort: { _id: 1 } }]),
       ]);
       // Occupancy = booked room-nights / available room-nights for the period
       const props = await Property.find(scope(req)).select('_id').lean();

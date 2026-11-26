@@ -1,31 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLive } from '../lib/live';
 
 /**
  * Minimal data-fetching hook (no external cache library to keep the stack lean).
  *   const { data, meta, loading, error, reload, setData } = useApi(() => api.get('/x'), [deps])
+ * Guest-facing screens can pass `{ live: 'content' }` (or 'settings', or both) to re-fetch quietly — no loading
+ * state, data swapped in place — whenever the admin changes that on the server (see lib/live.js).
+ * Don't use `live` for data that seeds an editable form.
  */
-export function useApi(fn, deps = [], { enabled = true } = {}) {
+export function useApi(fn, deps = [], { enabled = true, live } = {}) {
   const [state, setState] = useState({ data: undefined, meta: undefined, loading: enabled, error: null });
   const fnRef = useRef(fn);
   fnRef.current = fn;
   const seq = useRef(0);
 
-  const load = useCallback(async () => {
+  const run = useCallback(async (silent) => {
     const id = ++seq.current;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    if (!silent) setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const res = await fnRef.current();
       if (id === seq.current) setState({ data: res?.data, meta: res?.meta, loading: false, error: null });
     } catch (e) {
-      if (id === seq.current) setState((s) => ({ ...s, loading: false, error: e }));
+      if (id === seq.current) setState((s) => (silent ? { ...s, loading: false } : { ...s, loading: false, error: e })); // a failed background refresh keeps the old data
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
+  const load = useCallback(() => run(false), [run]);
 
   useEffect(() => {
     if (enabled) load();
     else setState((s) => ({ ...s, loading: false }));
   }, [load, enabled]);
+
+  useLive(enabled ? live : null, () => run(true));
 
   return { ...state, reload: load, setData: (updater) => setState((s) => ({ ...s, data: typeof updater === 'function' ? updater(s.data) : updater })) };
 }

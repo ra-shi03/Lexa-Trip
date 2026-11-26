@@ -280,48 +280,9 @@ export function HomeContentSettings() {
   );
 }
 
-export function MobileAppSettings() {
-  const [s, setS] = useAdminSettings();
-  const { reload } = useSettings();
-  const toast = useToast();
-  if (!s) return <PageLoader />;
-  const app = s.app || {};
-  const splash = app.splash || {};
-  const ob = app.onboarding || { enabled: true, slides: [] };
-  const setSplash = (patch) => setS({ ...s, app: { ...app, splash: { ...splash, ...patch } } });
-  const setOb = (patch) => setS({ ...s, app: { ...app, onboarding: { ...ob, ...patch } } });
-  return (
-    <div>
-      <PageHeader title="Mobile app" subtitle="Splash screen and onboarding for the customer app. Logo, favicon, colours and features come from Theme & branding / App features." actions={<Button icon={Save} onClick={() => saveSection('app', app, toast, reload)}>Save</Button>} />
-      <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
-          <section className="card card-pad grid gap-4 sm:grid-cols-2">
-            <h2 className="font-extrabold sm:col-span-2">Splash screen</h2>
-            <ColorField label="Background colour (empty = brand gradient)" value={splash.background || ''} onChange={(v) => setSplash({ background: v })} />
-            <Input label="Show for (seconds)" type="number" min={1} max={6} step={0.2} value={splash.seconds ?? 1.8} onChange={(e) => setSplash({ seconds: Number(e.target.value) })} />
-            <div className="sm:col-span-2"><SingleImage label="Background image (optional, portrait)" value={splash.image ? { url: splash.image } : null} onChange={(v) => setSplash({ image: v?.url || '' })} uploadUrl="/admin/uploads/images" /></div>
-            <div className="sm:col-span-2"><Toggle label="Show tagline under the logo" checked={splash.showTagline !== false} onChange={(v) => setSplash({ showTagline: v })} /></div>
-          </section>
-          <section className="card card-pad space-y-4">
-            <div className="flex items-center justify-between"><h2 className="font-extrabold">Onboarding slides</h2><Toggle checked={ob.enabled !== false} onChange={(v) => setOb({ enabled: v })} /></div>
-            <p className="text-sm text-muted">Shown once on first launch. Use portrait or square photos.</p>
-            <Repeater items={ob.slides || []} onChange={(slides) => setOb({ slides })} max={6} newItem={() => ({ image: '', title: '', text: '' })} addLabel="Add slide" render={(sl, u) => (
-              <div className="grid gap-3">
-                <SingleImage label="Image" value={sl.image ? { url: sl.image } : null} onChange={(v) => u({ image: v?.url || '' })} uploadUrl="/admin/uploads/images" />
-                <Input label="Title" value={sl.title || ''} onChange={(e) => u({ title: e.target.value })} />
-                <Input label="Text" value={sl.text || ''} onChange={(e) => u({ text: e.target.value })} />
-              </div>
-            )} />
-          </section>
-        </div>
-        <aside className="card card-pad h-fit space-y-3 text-sm">
-          <h2 className="font-extrabold">Also controls the app</h2>
-          {[['/admin/settings/appearance', 'Logo, favicon, colours, fonts'], ['/admin/settings/features', 'Show/hide Stays, Buses, Flights, AI, wishlist…'], ['/admin/settings/home', 'Home hero slideshow & AI banner'], ['/admin/banners', 'Offer banners'], ['/admin/catalog/categories', 'Category photos'], ['/admin/catalog/destinations', 'Destination photos']].map(([to, t]) => <Link key={to} to={to} className="block rounded-brand border border-line p-3 font-semibold transition hover:border-primary">{t}</Link>)}
-        </aside>
-      </div>
-    </div>
-  );
-}
+// Mobile app editor lives in its own file (tabs + live preview)
+export { MobileAppSettings } from './MobileAppSettings';
+export { RegionSettings } from './RegionSettings';
 
 export function LoginPageSettings() {
   const [s, setS] = useAdminSettings();

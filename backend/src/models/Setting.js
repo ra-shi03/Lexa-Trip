@@ -19,6 +19,7 @@ const settingSchema = new mongoose.Schema(
     app: { type: Object, default: {} },
     auth: { type: Object, default: {} },
     booking: { type: Object, default: {} },
+    regional: { type: Object, default: {} },
     tax: { type: Object, default: {} },
     commission: { type: Object, default: {} },
     social: { type: Object, default: {} },

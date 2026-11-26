@@ -16,7 +16,7 @@ import { money } from '../../lib/format';
 export default function Home() {
   const { homeSections, feature, brand, ai, home: homeCfg } = useSettings();
   const hero = homeCfg?.hero || {};
-  const { data, loading } = useApi(() => api.get('/public/home'), []);
+  const { data, loading } = useApi(() => api.get('/public/home'), [], { live: 'content' });
   const bannerSlides = (data?.heroBanners || []).filter((b) => b.image).map((b) => ({ url: b.image, title: b.title, subtitle: b.subtitle, link: b.link }));
   const heroSlides = bannerSlides.length ? bannerSlides : hero.slides || [];
   const hasSlides = heroSlides.some((sl) => sl.url);

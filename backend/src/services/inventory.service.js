@@ -22,11 +22,17 @@ export async function ensureInventory(roomType, from, to) {
 
 /** Availability for several room types over [from, to). */
 export async function getAvailability(roomTypes, from, to) {
-  for (const rt of roomTypes) await ensureInventory(rt, from, to);
-  const rows = await Inventory.find({
-    roomType: { $in: roomTypes.map((r) => r._id) },
-    date: { $gte: toDay(from), $lt: toDay(to) },
-  }).lean();
+  const query = { roomType: { $in: roomTypes.map((r) => r._id) }, date: { $gte: toDay(from), $lt: toDay(to) } };
+  let rows = await Inventory.find(query).lean();
+  // Read first, write only when rows are missing — searches and page views must not write on every request
+  const nights = dayRange(from, to).length;
+  const have = new Map();
+  for (const r of rows) have.set(String(r.roomType), (have.get(String(r.roomType)) || 0) + 1);
+  const missing = roomTypes.filter((rt) => (have.get(String(rt._id)) || 0) < nights);
+  if (missing.length) {
+    await Promise.all(missing.map((rt) => ensureInventory(rt, from, to)));
+    rows = await Inventory.find(query).lean();
+  }
 
   const result = {};
   for (const rt of roomTypes) {

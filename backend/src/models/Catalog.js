@@ -10,6 +10,9 @@ const categorySchema = new mongoose.Schema(
     description: String,
     isActive: { type: Boolean, default: true },
     showOnHome: { type: Boolean, default: true },
+    /** type  = a property type vendors pick (Hotel, Villa…)
+     *  deals = a collection filled automatically with every stay running a vendor deal today ("Deals of the day") */
+    kind: { type: String, enum: ['type', 'deals'], default: 'type' },
     sortOrder: { type: Number, default: 0 },
   },
   { timestamps: true },

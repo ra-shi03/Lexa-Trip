@@ -39,7 +39,7 @@ export function StaticPage() {
 }
 
 export function Offers() {
-  const { data, loading } = useApi(() => api.get('/public/offers'), []);
+  const { data, loading } = useApi(() => api.get('/public/offers'), [], { live: 'content' });
   const toast = useToast();
   return (
     <Container className="py-10">

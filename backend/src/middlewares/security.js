@@ -38,9 +38,13 @@ export const otpLimiter = make({
 export const otpIpLimiter = make({ windowMs: 60 * 60_000, limit: rl.otpIpMax, message: json('Too many OTP requests from this network.') });
 
 export const uploadLimiter = make({ windowMs: 10 * 60_000, limit: rl.uploadMax, message: json('Upload limit reached. Try again shortly.') });
+/** Token refresh: generous (every tab renews every ~15 min) but stops refresh-token guessing */
+export const refreshLimiter = make({ windowMs: 15 * 60_000, limit: rl.refreshMax, message: json('Too many session refreshes. Please sign in again.') });
+/** Live-update stream: caps reconnect storms per IP */
+export const liveLimiter = make({ windowMs: win, limit: rl.liveMax, message: json('Too many live connections.') });
 export const aiLimiter = make({ windowMs: win, limit: rl.aiMax, message: json('Lexa AI is getting a lot of questions — please wait a moment.') });
 
-const ID_PARAMS = ['id', 'roomId', 'ruleId', 'bookingId', 'propertyId', 'docId', 'cityId'];
+const ID_PARAMS = ['id', 'roomId', 'ruleId', 'bookingId', 'propertyId', 'docId', 'cityId', 'dealId'];
 /** Rejects malformed ObjectIds early (400) instead of a CastError deep in a query. */
 export function validateObjectIdParams(router) {
   const check = (_req, _res, next, value, name) => {

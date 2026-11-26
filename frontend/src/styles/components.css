@@ -90,7 +90,7 @@ select.input { appearance: none; padding-right: 2.2rem; background-image: url("d
 .table tbody tr:hover td { background: color-mix(in srgb, var(--lt-surface) 60%, transparent); }
 
 /* ── Feedback ── */
-.skeleton { background: linear-gradient(90deg, var(--lt-surface) 25%, color-mix(in srgb, var(--lt-surface) 60%, var(--lt-border)) 37%, var(--lt-surface) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--lt-radius); }
+.skeleton { background: linear-gradient(90deg, color-mix(in srgb, var(--lt-surface) 55%, var(--lt-border)) 25%, var(--lt-surface) 37%, color-mix(in srgb, var(--lt-surface) 55%, var(--lt-border)) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--lt-radius); }
 @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .animate-fade-up { animation: fade-up .25s ease both; }
@@ -193,3 +193,16 @@ select.input { appearance: none; padding-right: 2.2rem; background-image: url("d
   .hero-panel .search-go { flex: 1 1 100%; width: 100%; height: 50px; }
 }
 @media (prefers-reduced-motion: reduce) { .word-in, .orb, .scroll-cue, .panel-in, .text-shimmer { animation: none !important; } .tilt-card:hover { transform: none; } }
+
+/* Transparent-image preview (admin uploaders): shows a checkerboard behind PNG/WebP with alpha */
+.checker {
+  background-color: var(--lt-surface);
+  background-image: linear-gradient(45deg, color-mix(in srgb, var(--lt-border) 70%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--lt-border) 70%, transparent) 75%),
+    linear-gradient(45deg, color-mix(in srgb, var(--lt-border) 70%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--lt-border) 70%, transparent) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
+}
+
+/* Skeleton on dark brand surfaces (app home hero) */
+.skeleton-dark { background: linear-gradient(90deg, rgb(255 255 255 / .12) 25%, rgb(255 255 255 / .24) 37%, rgb(255 255 255 / .12) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: var(--lt-radius); }
+@media (prefers-reduced-motion: reduce) { .skeleton, .skeleton-dark { animation: none; } }

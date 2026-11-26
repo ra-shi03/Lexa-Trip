@@ -6,3 +6,8 @@ dist
 backend/uploads/*
 !backend/uploads/.gitkeep
 *.log
+
+# Local-only project notes (not published)
+CLAUDE.md
+docs/
+.claude/

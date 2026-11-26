@@ -5,6 +5,7 @@ import { PanelLayout } from '../../components/layout/PanelLayout';
 import { Logo } from '../../components/layout/Logo';
 import { PropertyEditor } from '../../components/panel/PropertyEditor';
 import { InventoryPage } from '../../components/panel/InventoryGrid';
+import { DealsPage } from '../../components/panel/DealsPage';
 import { BookingsPanel } from '../../components/panel/BookingsPanel';
 import { ReportsView } from '../../components/panel/ReportsView';
 import { Button, Input, Select, PageHeader, StatCard, DataTable, StatusBadge, Alert, PageLoader, Img, Tabs, EmptyState } from '../../components/ui';
@@ -61,7 +62,7 @@ export function VendorShell() {
   if (!vendor) return <Navigate to="/vendor/login" replace />;
   const nav = [
     { items: [{ to: '/vendor', label: 'Dashboard', icon: LayoutDashboard, end: true }] },
-    { section: 'Property', items: [{ to: '/vendor/properties', label: 'Properties & rooms', icon: Building2 }, { to: '/vendor/inventory', label: 'Inventory & rates', icon: CalendarDays }] },
+    { section: 'Property', items: [{ to: '/vendor/properties', label: 'Properties & rooms', icon: Building2 }, { to: '/vendor/inventory', label: 'Inventory & rates', icon: CalendarDays }, { to: '/vendor/deals', label: 'Deals & offers', icon: Percent }] },
     { section: 'Business', items: [{ to: '/vendor/bookings', label: 'Bookings', icon: CalendarCheck }, { to: '/vendor/earnings', label: 'Earnings & payouts', icon: Wallet }, { to: '/vendor/reports', label: 'Reports', icon: BarChart3 }] },
     { section: 'Account', items: [{ to: '/vendor/profile', label: 'Business profile', icon: User }, { to: '/vendor/notifications', label: 'Notifications', icon: Bell }] },
   ];
@@ -123,6 +124,7 @@ export function VendorPropertyEdit() {
   return <PropertyEditor apiBase="/vendor" id={id} listPath="/vendor/properties" />;
 }
 export const VendorInventory = () => <InventoryPage apiBase="/vendor" />;
+export const VendorDeals = () => <DealsPage apiBase="/vendor" />;
 export const VendorBookings = () => <div><PageHeader title="Bookings" subtitle="Upcoming, in-house, completed and cancelled reservations" /><BookingsPanel apiBase="/vendor" showRevenue /></div>;
 export const VendorReports = () => <ReportsView endpoint="/vendor/reports" />;
 

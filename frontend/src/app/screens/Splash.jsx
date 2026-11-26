@@ -33,7 +33,7 @@ export default function Splash() {
       <div className="relative flex flex-col items-center px-8 text-center">
         <img src={brand.markUrl || '/lexatrip-mark.jpg'} alt={brand.appName} className="splash-pop h-28 w-28 rounded-full bg-white object-cover p-1 shadow-pop" />
         <p className="splash-pop mt-6 font-display text-3xl font-extrabold tracking-wide" style={{ animationDelay: '.15s' }}>{brand.appName}</p>
-        {splash.showTagline !== false && <p className="splash-pop mt-2 text-sm text-white/80" style={{ animationDelay: '.3s' }}>{brand.tagline}</p>}
+        {splash.showTagline !== false && (splash.tagline || brand.tagline) && <p className="splash-pop mt-2 text-sm text-white/80" style={{ animationDelay: '.3s' }}>{splash.tagline || brand.tagline}</p>}
       </div>
     </div>
   );

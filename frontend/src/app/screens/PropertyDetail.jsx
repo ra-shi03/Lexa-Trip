@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { MapPin, Clock, Check, X, Users, Maximize, BedDouble, Sparkles, Heart, Share2, ShieldCheck, Coffee } from 'lucide-react';
+import { MapPin, Clock, Check, X, Users, Maximize, BedDouble, Sparkles, Heart, Share2, ShieldCheck, Coffee, Flame, Timer } from 'lucide-react';
 import { Container } from '../Container';
 import { StaySearchForm, useStayQuery } from '@/components/search/SearchForms';
 import { DynIcon, PropertyCard } from '@/components/stay/StayComponents';
-import { Img, Stars, RatingPill, Badge, Button, PageLoader, ErrorState, Modal, Skeleton, Avatar } from '@/components/ui';
+import { Img, Stars, RatingPill, Badge, Button, ErrorState, Modal, Skeleton, Avatar } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
-import { money, plural, dateLabel, cx, timeAgo } from '@/lib/format';
+import { PropertyDetailSkeleton } from '../Skeletons';
+import { money, plural, dateLabel, cx, timeAgo, isoDate, addDays } from '@/lib/format';
+import { dealLabel, dealEnds, dealWindow } from '@/lib/deals';
 
 export default function PropertyDetail() {
   const { slug } = useParams();
@@ -21,13 +23,13 @@ export default function PropertyDetail() {
   const { user, update } = useAuth();
   const { feature } = useSettings();
   const [gallery, setGallery] = useState(false);
-  const { data, loading, error, reload } = useApi(() => api.get(`/public/properties/${slug}`), [slug]);
+  const { data, loading, error, reload } = useApi(() => api.get(`/public/properties/${slug}`), [slug], { live: 'content' });
   const p = data?.property;
   const rateKey = `${p?._id}-${sp.toString()}`;
   const { data: rates, loading: ratesLoading } = useApi(() => api.get(`/public/properties/${p._id}/rates`, { checkIn: q.checkIn, checkOut: q.checkOut, rooms: q.rooms, adults: q.adults, children: q.children }), [rateKey], { enabled: Boolean(p?._id) });
   const { data: summary } = useApi(() => api.get(`/public/ai/review-summary/${p._id}`), [p?._id], { enabled: Boolean(p?._id) && feature('aiReviewSummary') && (p?.rating?.count || 0) >= 3 });
 
-  if (loading) return <PageLoader />;
+  if (loading) return <PropertyDetailSkeleton />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const images = p.images || [];
@@ -64,6 +66,28 @@ export default function PropertyDetail() {
             <Button variant="outline" size="sm" icon={Share2} onClick={() => { navigator.clipboard?.writeText(window.location.href); toast.success('Link copied'); }}>Share</Button>
           </div>
         </div>
+
+        {data.deal && (() => {
+          const d = data.deal;
+          const applies = rates?.some((r) => r.pricing?.dealSavings > 0);
+          const applyDealDates = () => {
+            const start = new Date(Math.max(Date.now(), +new Date(d.startDate)));
+            const ci = isoDate(start);
+            const n = new URLSearchParams(sp); n.set('checkIn', ci); n.set('checkOut', isoDate(addDays(ci, 1)));
+            navigate({ search: n.toString() }, { replace: true });
+          };
+          return (
+            <div className="mt-4 flex items-center gap-3 rounded-brand-lg border border-primary/25 bg-primary-soft p-3.5">
+              <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-primary text-white"><Flame size={22} /></span>
+              <div className="min-w-0 flex-1">
+                <p className="font-extrabold leading-tight text-ink">{dealLabel(d)}{d.title && d.title !== d.label ? ` · ${d.title}` : ''}</p>
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[13px] text-muted"><span className="flex items-center gap-1 font-semibold text-primary"><Timer size={13} />{dealEnds(d)}</span><span>{dealWindow(d)}{d.allRooms ? '' : ' · selected rooms'}</span></p>
+              </div>
+              {!ratesLoading && rates && !applies && <Button size="sm" variant="soft" onClick={applyDealDates} className="flex-none">Use deal dates</Button>}
+              {applies && <span className="flex-none rounded-full bg-success/10 px-2.5 py-1 text-xs font-bold text-success">Applied</span>}
+            </div>
+          );
+        })()}
 
         {/* Gallery */}
         <div className="mt-5 grid h-[260px] grid-cols-4 grid-rows-2 gap-2 overflow-hidden rounded-[20px] sm:h-[420px]">
@@ -133,7 +157,10 @@ export default function PropertyDetail() {
                                 </div>
                                 {r.available ? (
                                   <div className="flex items-center gap-3">
-                                    <div className="text-right"><p className="text-lg font-extrabold">{money(r.pricing.totalAmount)}</p><p className="text-[11px] text-muted">total incl. taxes</p></div>
+                                    <div className="text-right">
+                                      {r.pricing.dealSavings > 0 && <p className="text-[11px] font-bold text-success">Deal · save {money(r.pricing.dealSavings)}</p>}
+                                      <p className="text-lg font-extrabold">{money(r.pricing.totalAmount)}</p><p className="text-[11px] text-muted">total incl. taxes</p>
+                                    </div>
                                     <Button size="sm" onClick={() => book(rt._id, r.ratePlan.code)}>Book now</Button>
                                   </div>
                                 ) : <span className="text-sm font-semibold text-danger">{r.reason || 'Unavailable'}</span>}

@@ -1,11 +1,10 @@
 import { ResourcePage } from '../../components/panel/ResourcePage';
 import { StatusBadge, Badge, Img } from '../../components/ui';
-import { DynIcon, ICONS } from '../../components/stay/StayComponents';
+import { DynIcon } from '../../components/stay/StayComponents';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../lib/api';
 import { money, dateLabel, titleCase } from '../../lib/format';
 
-const ICON_OPTIONS = Object.keys(ICONS).map((k) => ({ value: k, label: k }));
 const active = (r) => <StatusBadge status={r.isActive ? 'active' : 'closed'} />;
 
 export const Categories = () => (
@@ -13,15 +12,16 @@ export const Categories = () => (
     title="Accommodation categories"
     subtitle="Hotels, villas, resorts, hostels… shown in search filters and the home screen"
     endpoint="/admin/categories"
-    defaults={{ isActive: true, showOnHome: true, sortOrder: 0, icon: 'building-2' }}
+    defaults={{ isActive: true, showOnHome: true, sortOrder: 0, icon: 'building-2', kind: 'type' }}
     columns={[
-      { key: 'name', label: 'Category', render: (r) => <span className="flex items-center gap-2 font-semibold"><DynIcon name={r.icon} />{r.name}</span> },
+      { key: 'name', label: 'Category', render: (r) => <span className="flex items-center gap-2 font-semibold"><DynIcon name={r.icon} />{r.name}{r.kind === 'deals' && <Badge tone="danger">Auto · live deals</Badge>}</span> },
       { key: 'slug', label: 'Slug' }, { key: 'sortOrder', label: 'Order' },
       { key: 'showOnHome', label: 'Home', render: (r) => (r.showOnHome ? 'Yes' : 'No') }, { key: 'isActive', label: 'Status', render: active },
     ]}
     fields={[
       { name: 'name', label: 'Name', required: true }, { name: 'slug', label: 'Slug', hint: 'Auto-generated if empty' },
-      { name: 'icon', label: 'Icon', type: 'select', options: ICON_OPTIONS }, { name: 'sortOrder', label: 'Sort order', type: 'number' },
+      { name: 'icon', label: 'Icon', type: 'icon' }, { name: 'sortOrder', label: 'Sort order', type: 'number' },
+      { name: 'kind', label: 'What it shows', type: 'select', options: [{ value: 'type', label: 'A property type (vendors pick it)' }, { value: 'deals', label: 'Today’s vendor deals (filled automatically)' }], hint: 'Deals categories list every stay with a deal live today' },
       { name: 'description', label: 'Description', type: 'textarea', full: true }, { name: 'image', label: 'Image', type: 'image', full: true },
       { name: 'showOnHome', label: 'Show on home', type: 'toggle' }, { name: 'isActive', label: 'Active', type: 'toggle' },
     ]}
@@ -39,7 +39,7 @@ export const Amenities = () => (
       { key: 'group', label: 'Group', render: (r) => titleCase(r.group) }, { key: 'isFilterable', label: 'Filter', render: (r) => (r.isFilterable ? 'Yes' : 'No') }, { key: 'isActive', label: 'Status', render: active },
     ]}
     fields={[
-      { name: 'name', label: 'Name', required: true }, { name: 'icon', label: 'Icon', type: 'select', options: ICON_OPTIONS },
+      { name: 'name', label: 'Name', required: true }, { name: 'icon', label: 'Icon', type: 'icon' },
       { name: 'group', label: 'Group', type: 'select', options: ['general', 'room', 'food', 'wellness', 'business', 'family', 'accessibility', 'safety'] },
       { name: 'slug', label: 'Slug' }, { name: 'isFilterable', label: 'Show as search filter', type: 'toggle' }, { name: 'isActive', label: 'Active', type: 'toggle' },
     ]}

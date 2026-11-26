@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Heart, MapPin, Check, Wifi, Waves, Flower2, Coffee, Car, Dumbbell, Utensils, Snowflake, Bell, PawPrint, Plane, Wine, Mountain, Umbrella, Baby, Zap, Clock, Accessibility, Cctv, ChefHat, Building2, Home, Palmtree, BedDouble, House, HeartHandshake, Building } from 'lucide-react';
+import { Heart, MapPin, Check, Wifi, Waves, Flower2, Coffee, Car, Dumbbell, Utensils, Snowflake, Bell, PawPrint, Plane, Wine, Mountain, Umbrella, Baby, Zap, Clock, Accessibility, Cctv, ChefHat, Building2, Home, Palmtree, BedDouble, House, HeartHandshake, Building, Bus, Sparkles, Timer, Flame, TrainFront, CarTaxiFront, BadgePercent, Ticket, Gift, Tag, Tent, Ship, Compass, Map as MapIcon, Headphones, Hotel, Luggage, Camera } from 'lucide-react';
 import { Img, Stars, RatingPill, Badge, Checkbox } from '../ui';
 import { money, cx, plural } from '../../lib/format';
+import { dealRibbon, dealEnds, dealLabel } from '../../lib/deals';
 
 /** Maps icon names stored in the DB (catalogue) to lucide components */
 export const ICONS = {
   wifi: Wifi, waves: Waves, 'flower-2': Flower2, coffee: Coffee, car: Car, dumbbell: Dumbbell, utensils: Utensils, snowflake: Snowflake, bell: Bell,
   'paw-print': PawPrint, plane: Plane, wine: Wine, mountain: Mountain, umbrella: Umbrella, baby: Baby, zap: Zap, clock: Clock, accessibility: Accessibility,
   cctv: Cctv, 'chef-hat': ChefHat, 'building-2': Building2, home: Home, palmtree: Palmtree, 'bed-double': BedDouble, house: House, 'heart-handshake': HeartHandshake, building: Building, check: Check,
+  bus: Bus, sparkles: Sparkles, 'train-front': TrainFront, 'car-taxi-front': CarTaxiFront, 'badge-percent': BadgePercent, ticket: Ticket, gift: Gift, tag: Tag,
+  tent: Tent, ship: Ship, compass: Compass, map: MapIcon, headphones: Headphones, hotel: Hotel, luggage: Luggage, camera: Camera, 'map-pin': MapPin,
 };
 export const DynIcon = ({ name, size = 16, className }) => {
   const C = ICONS[name] || Check;
@@ -22,7 +25,7 @@ export function PropertyRow({ p, query, saved, onToggleSave }) {
     <article className="card group grid overflow-hidden transition hover:shadow-pop sm:grid-cols-[260px_1fr_200px]">
       <Link to={`/stay/${p.slug}${qs}`} className="relative block">
         <Img src={p.images?.[0]?.url} alt={p.images?.[0]?.alt || p.name} className="h-52 w-full sm:h-full sm:min-h-[200px]" />
-        {p.isFeatured && <span className="absolute left-3 top-3 badge badge-navy">Featured</span>}
+        {p.deal ? <DealRibbon deal={p.deal} className="absolute left-3 top-3" /> : p.isFeatured && <span className="absolute left-3 top-3 badge badge-navy">Featured</span>}
         {onToggleSave && (
           <button onClick={(e) => { e.preventDefault(); onToggleSave(p._id); }} className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/95 text-ink shadow-card" aria-label={saved ? 'Remove from saved' : 'Save'}>
             <Heart size={17} className={saved ? 'fill-primary text-primary' : ''} />
@@ -37,6 +40,9 @@ export function PropertyRow({ p, query, saved, onToggleSave }) {
         <Link to={`/stay/${p.slug}${qs}`} className="text-lg font-extrabold leading-snug text-secondary hover:text-primary">{p.name}</Link>
         <p className="flex items-center gap-1 text-sm text-muted"><MapPin size={14} />{[p.area, p.city?.name].filter(Boolean).join(', ')}</p>
         <RatingPill rating={p.rating} />
+        {p.deal && (
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-primary"><Timer size={14} />{p.deal.title !== p.deal.label ? `${p.deal.title} · ` : ''}{dealEnds(p.deal)}{p.nightlyOriginal ? '' : ' · pick dates in the offer window'}</p>
+        )}
         <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
           {p.refundable && <Badge tone="success"><Check size={12} />Free cancellation</Badge>}
           {p.breakfastAvailable && <Badge tone="primary">Breakfast available</Badge>}
@@ -48,6 +54,7 @@ export function PropertyRow({ p, query, saved, onToggleSave }) {
           {p.available ? (
             <>
               {p.roomsLeft > 0 && p.roomsLeft <= 3 && <p className="mb-1 text-xs font-bold text-danger">Only {plural(p.roomsLeft, 'room')} left</p>}
+              {p.nightlyOriginal > p.nightlyFrom && <p className="text-sm text-muted"><s>{money(p.nightlyOriginal)}</s> <span className="font-bold text-success">{Math.round((1 - p.nightlyFrom / p.nightlyOriginal) * 100)}% off</span></p>}
               <p className="text-2xl font-extrabold text-ink">{money(p.nightlyFrom)}</p>
               <p className="text-xs text-muted">per night{p.totalFrom ? ` · ${money(p.totalFrom)} total` : ''}</p>
               <p className="text-[11px] text-muted">+ taxes &amp; fees</p>
@@ -66,8 +73,9 @@ export function PropertyRow({ p, query, saved, onToggleSave }) {
 export function PropertyCard({ p }) {
   return (
     <Link to={`/stay/${p.slug}`} className="group block">
-      <div className="overflow-hidden rounded-brand-lg">
+      <div className="relative overflow-hidden rounded-brand-lg">
         <Img src={p.images?.[0]?.url} alt={p.name} className="aspect-[4/3] w-full transition duration-300 group-hover:scale-105" />
+        {p.deal && <DealRibbon deal={p.deal} compact className="absolute left-2 top-2" />}
       </div>
       <div className="mt-3">
         <div className="flex items-center justify-between gap-2">
@@ -75,7 +83,7 @@ export function PropertyCard({ p }) {
           {p.rating?.count > 0 && <span className="flex-none rounded-md bg-secondary px-1.5 text-xs font-bold text-white">{(p.rating.avg * 2).toFixed(1)}</span>}
         </div>
         <p className="text-sm text-muted">{p.city?.name || p.address?.city?.name}{p.category?.name ? ` · ${p.category.name}` : ''}</p>
-        <p className="mt-1 text-sm"><b className="text-ink">{money(p.nightlyFrom ?? p.minPrice)}</b> <span className="text-muted">/ night</span></p>
+        <p className="mt-1 text-sm">{p.nightlyOriginal > p.nightlyFrom && <s className="mr-1 text-muted">{money(p.nightlyOriginal)}</s>}<b className="text-ink">{money(p.nightlyFrom ?? p.minPrice)}</b> <span className="text-muted">/ night</span></p>
       </div>
     </Link>
   );
@@ -223,10 +231,21 @@ export function FilterSplit({ params, set, categories = [], amenities = [], pric
 }
 
 /** Price breakdown used on property page, checkout and booking details */
+/** "−20% · Today's deal" ribbon for photos */
+export function DealRibbon({ deal, className, compact }) {
+  if (!deal) return null;
+  return (
+    <span className={cx('inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-extrabold text-white shadow-card', className)} title={dealLabel(deal)}>
+      <Flame size={13} />{dealRibbon(deal)}{!compact && <span className="font-semibold text-white/90">· Today’s deal</span>}
+    </span>
+  );
+}
+
 export function PriceBreakdown({ pricing, nights, rooms }) {
   if (!pricing) return null;
   const rows = [
-    [`Room charges${nights ? ` (${plural(rooms || 1, 'room')} × ${plural(nights, 'night')})` : ''}`, pricing.baseAmount],
+    [`Room charges${nights ? ` (${plural(rooms || 1, 'room')} × ${plural(nights, 'night')})` : ''}`, pricing.baseAmount + (pricing.dealSavings || 0)],
+    pricing.dealSavings ? [`Hotel deal${pricing.deal?.label || pricing.dealTitle ? ` (${pricing.deal?.label || pricing.dealTitle})` : ''}`, -pricing.dealSavings, 'text-success'] : null,
     pricing.mealPlanAmount ? ['Meal plan', pricing.mealPlanAmount] : null,
     pricing.extraGuestAmount ? ['Extra guests', pricing.extraGuestAmount] : null,
     pricing.discount ? [`Discount${pricing.couponCode ? ` (${pricing.couponCode})` : ''}`, -pricing.discount, 'text-success'] : null,

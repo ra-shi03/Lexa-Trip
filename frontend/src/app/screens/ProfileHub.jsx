@@ -24,7 +24,7 @@ export default function ProfileHub() {
   const toast = useToast();
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const { data: pages } = useApi(() => api.get('/public/pages'), []);
+  const { data: pages } = useApi(() => api.get('/public/pages'), [], { live: 'content' });
   const legalIcon = { 'terms-and-conditions': FileText, 'privacy-policy': ShieldCheck };
 
   const signOut = () => { logout('user'); try { sessionStorage.removeItem('lt_splash'); } catch { /* ignore */ } navigate('/app', { replace: true }); };

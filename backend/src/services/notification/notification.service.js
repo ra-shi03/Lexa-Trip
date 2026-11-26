@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { env } from '../../config/env.js';
 import { Notification } from '../../models/Misc.js';
 
+import { formatDay, formatDateTime } from '../../utils/clock.js';
 let transporter = null;
 function mailer() {
   if (!env.smtp.host) return null;
@@ -40,8 +41,8 @@ export function bookingEmailHtml(b) {
   const amount = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(b.pricing.totalAmount);
   const lines =
     b.type === 'hotel'
-      ? `<p><b>${b.snapshot?.propertyName}</b> — ${b.snapshot?.roomName}<br/>Check-in ${new Date(b.checkIn).toDateString()} · Check-out ${new Date(b.checkOut).toDateString()}<br/>${b.rooms} room(s), ${b.guests?.adults} adult(s)</p>`
-      : `<p>${b.trip?.from} → ${b.trip?.to}<br/>${b.trip?.operator || b.trip?.airline || ''} · ${new Date(b.trip?.departure).toLocaleString('en-IN')}<br/>PNR: ${b.pnr || '-'}</p>`;
+      ? `<p><b>${b.snapshot?.propertyName}</b> — ${b.snapshot?.roomName}<br/>Check-in ${formatDay(b.checkIn)} · Check-out ${formatDay(b.checkOut)}<br/>${b.rooms} room(s), ${b.guests?.adults} adult(s)</p>`
+      : `<p>${b.trip?.from} → ${b.trip?.to}<br/>${b.trip?.operator || b.trip?.airline || ''} · ${formatDateTime(b.trip?.departure)}<br/>PNR: ${b.pnr || '-'}</p>`;
   return `<div style="font-family:Arial,sans-serif;color:#14213D">
     <h2 style="color:#F26B1D">Booking confirmed</h2>
     <p>Booking ID: <b>${b.bookingCode}</b></p>${lines}<p>Total paid: <b>${amount}</b></p>

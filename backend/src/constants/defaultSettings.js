@@ -107,7 +107,15 @@ export const DEFAULT_SETTINGS = {
   },
   /** Mobile app (Android/iOS/PWA) — Admin → Mobile app */
   app: {
-    splash: { background: '', image: '', seconds: 1.8, showTagline: true }, // background '' → brand gradient from theme
+    /** Quick-service tiles under the app home hero. Built-in keys (stays/buses/flights/ai) also need their feature flag on; key 'custom' = any link. */
+    quickServicesEnabled: true, // master switch for the whole tile row on the app home
+    quickServices: [
+      { key: 'stays', label: 'Stays', link: '/search', icon: 'bed-double', image: '', enabled: true },
+      { key: 'buses', label: 'Buses', link: '/bus', icon: 'bus', image: '', enabled: true },
+      { key: 'flights', label: 'Flights', link: '/flights', icon: 'plane', image: '', enabled: true },
+      { key: 'ai', label: '', link: '/ai', icon: 'sparkles', image: '', enabled: true }, // label '' → first word of the AI assistant name
+    ],
+    splash: { background: '', image: '', seconds: 1.8, showTagline: true, tagline: '' }, // tagline '' → brand tagline // background '' → brand gradient from theme
     onboarding: {
       enabled: true,
       slides: [
@@ -117,6 +125,9 @@ export const DEFAULT_SETTINGS = {
       ],
     },
   },
+  /** Region & time — Admin → Settings → Region & time (master admin). Decides "today" for bookings, deals,
+   *  reports and jobs, and the clock every app/panel displays. IANA name: "Asia/Kolkata", "UTC", "Asia/Dubai"… */
+  regional: { timezone: 'Asia/Kolkata' },
   booking: {
     holdMinutes: 15, // inventory hold while payment is in progress
     maxRoomsPerBooking: 8,

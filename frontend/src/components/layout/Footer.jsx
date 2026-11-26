@@ -5,9 +5,10 @@ import { useSettings } from '../../context/SettingsContext';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../lib/api';
 
+import { platformParts } from '../../lib/format';
 export function Footer() {
   const { brand, feature } = useSettings();
-  const { data: pages } = useApi(() => api.get('/public/pages'), []);
+  const { data: pages } = useApi(() => api.get('/public/pages'), [], { live: 'content' });
   return (
     <footer className="mt-16 border-t border-line bg-surface pb-24 md:pb-0">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
@@ -36,7 +37,7 @@ export function Footer() {
         </FooterCol>
       </div>
       <div className="border-t border-line">
-        <p className="mx-auto max-w-7xl px-4 py-5 text-xs text-muted sm:px-6">© {new Date().getFullYear()} {brand.appName}. All rights reserved.</p>
+        <p className="mx-auto max-w-7xl px-4 py-5 text-xs text-muted sm:px-6">© {platformParts().year} {brand.appName}. All rights reserved.</p>
       </div>
     </footer>
   );

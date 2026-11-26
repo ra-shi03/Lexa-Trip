@@ -5,6 +5,7 @@ import Property from '../../models/Property.js';
 import Booking from '../../models/Booking.js';
 import { notify, sendEmail } from '../../services/notification/notification.service.js';
 import { audit } from '../../services/audit.service.js';
+import { revokeAllSessions } from '../../services/token.service.js';
 import { ok, created } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { buildListQuery, pageMeta } from '../../utils/queryBuilder.js';
@@ -24,6 +25,8 @@ export async function user(req, res) {
 }
 export async function setUserStatus(req, res) {
   const u = await User.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+  if (!u) throw ApiError.notFound();
+  if (u.status !== 'active') await revokeAllSessions('user', u._id);
   audit(req, `user.${req.body.status}`, 'User', u._id);
   ok(res, u, undefined, `User ${req.body.status}`);
 }
@@ -52,7 +55,7 @@ export async function setVendorStatus(req, res) {
   if (!status) throw ApiError.badRequest('Unknown action');
   const v = await Vendor.findByIdAndUpdate(req.params.id, { status, statusNote: req.body.note }, { new: true });
   if (!v) throw ApiError.notFound();
-  if (status === 'suspended') await Property.updateMany({ vendor: v._id }, { isVisible: false });
+  if (status === 'suspended') { await Property.updateMany({ vendor: v._id }, { isVisible: false }); await revokeAllSessions('vendor', v._id); }
   if (req.body.action === 'activate') await Property.updateMany({ vendor: v._id, status: 'approved' }, { isVisible: true });
   await notify({ recipientType: 'vendor', recipient: v._id, title: `Account ${status}`, body: req.body.note || '', type: 'vendor_status' });
   await sendEmail({ to: v.email, subject: `Your LexaTrip partner account is ${status}`, html: `<p>Hi ${v.name},</p><p>Your account status is now <b>${status}</b>.</p>${req.body.note ? `<p>${req.body.note}</p>` : ''}` });
@@ -140,13 +143,15 @@ export async function updateSubadmin(req, res) {
     a.password = password;
   }
   await a.save();
+  if (a.status !== 'active' || password) await revokeAllSessions('admin', a._id); // suspended or password reset → sign out everywhere
   audit(req, 'subadmin.update', 'Admin', a._id, { permissions: a.permissions, status: a.status });
   const out = a.toObject();
   delete out.password;
   ok(res, out, undefined, 'Sub-admin updated');
 }
 export async function deleteSubadmin(req, res) {
-  await Admin.deleteOne({ _id: req.params.id, role: 'subadmin' });
+  const del = await Admin.deleteOne({ _id: req.params.id, role: 'subadmin' });
+  if (del.deletedCount) await revokeAllSessions('admin', req.params.id);
   audit(req, 'subadmin.delete', 'Admin', req.params.id);
   ok(res, null, undefined, 'Sub-admin removed');
 }

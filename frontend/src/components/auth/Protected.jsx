@@ -7,15 +7,15 @@ const LOGIN = { user: '/login', vendor: '/vendor/login', admin: '/admin/login' }
 
 /**
  * Route guard. <Protected role="user|vendor|admin" [perm="finance"] [master]>…</Protected>
- *  - waits for the session check, then redirects to the right login with ?next=<current page>
+ *  - waits for the session check (shows `fallback`, e.g. a screen skeleton, or a spinner), then redirects to the right login with ?next=<current page>
  *  - when a token expires mid-session (401 from the API interceptor) the session clears and this
  *    redirects automatically
  *  - role mismatch / missing permission shows "access restricted" (server enforces the same rules)
  */
-export function Protected({ role, perm, master, children }) {
+export function Protected({ role, perm, master, fallback, children }) {
   const auth = useAuth();
   const loc = useLocation();
-  if (!auth.ready[role]) return <PageLoader label="Checking your session…" />;
+  if (!auth.ready[role]) return fallback || <PageLoader label="Checking your session…" />;
   if (!auth[role]) {
     // landing on the panel's home needs no ?next= — keeps the login URL clean (/vendor/login)
     const atHome = HOME[role] && loc.pathname.replace(/\/+$/, '') === HOME[role] && !loc.search;

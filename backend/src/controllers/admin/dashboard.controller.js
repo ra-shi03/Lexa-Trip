@@ -7,13 +7,14 @@ import SeoHotel from '../../models/seo/SeoHotel.js';
 import { ok } from '../../utils/response.js';
 import { addDays, toDay } from '../../utils/helpers.js';
 
+import { today, daysFromToday, dayStart, platformTimezone } from '../../utils/clock.js';
 /**
  * Master admin sees revenue/commission; sub-admins get the same dashboard
  * WITHOUT any revenue figures (computed server-side, never sent).
  */
 export async function dashboard(req, res) {
   const isMaster = req.admin.role === 'master';
-  const since = addDays(new Date(), -30);
+  const since = dayStart(daysFromToday(-30));
   const live = { $nin: ['pending_payment', 'failed', 'expired'] };
 
   const [users, vendors, properties, bookingsByType, byStatus, pendingVendors, pendingProperties, pendingReviews, openTickets, seoDrafts, recentActivity, recentBookings] = await Promise.all([
@@ -31,7 +32,7 @@ export async function dashboard(req, res) {
     Booking.find({ status: live }).sort({ createdAt: -1 }).limit(8).select('bookingCode type status snapshot trip.from trip.to primaryGuest.name createdAt pricing.totalAmount').lean(),
   ]);
 
-  const trendGroup = { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, bookings: { $sum: 1 } };
+  const trendGroup = { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: platformTimezone() } }, bookings: { $sum: 1 } };
   if (isMaster) {
     trendGroup.revenue = { $sum: '$pricing.totalAmount' };
     trendGroup.commission = { $sum: '$commission.amount' };
@@ -46,7 +47,7 @@ export async function dashboard(req, res) {
     trend,
     recentActivity,
     recentBookings: isMaster ? recentBookings : recentBookings.map(({ pricing, ...b }) => b),
-    today: toDay(new Date()),
+    today: today(),
   };
 
   if (isMaster) {

@@ -28,8 +28,8 @@ export default function Search() {
   const toast = useToast();
   const key = params.toString();
   const { data, meta, loading, error, reload } = useApi(() => api.get('/public/properties', Object.fromEntries(params)), [key]);
-  const { data: categories } = useApi(() => api.get('/public/categories'), []);
-  const { data: amenities } = useApi(() => api.get('/public/amenities'), []);
+  const { data: categories } = useApi(() => api.get('/public/categories'), [], { live: 'content' });
+  const { data: amenities } = useApi(() => api.get('/public/amenities'), [], { live: 'content' });
 
   const set = (k, v) => setParams((p) => { const n = new URLSearchParams(p); if (v === '' || v === undefined || v === null) n.delete(k); else n.set(k, v); n.delete('page'); return n; }, { replace: true });
   const sort = params.get('sort') || 'recommended';

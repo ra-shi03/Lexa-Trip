@@ -30,6 +30,8 @@ export const env = {
     otpWindowMin: num('RATE_LIMIT_OTP_WINDOW_MIN', 15),
     uploadMax: num('RATE_LIMIT_UPLOAD_MAX', 60), // uploads per 10 min
     aiMax: num('RATE_LIMIT_AI_MAX', 20), // AI calls per window
+    refreshMax: num('RATE_LIMIT_REFRESH_MAX', 60), // token refreshes per 15 min per IP
+    liveMax: num('RATE_LIMIT_LIVE_MAX', 30), // live-update stream (re)connections per window per IP
   },
   /** MongoDB connection pool & index behaviour */
   db: {
@@ -38,7 +40,11 @@ export const env = {
     // Build indexes on boot in dev; in production run `npm run indexes` during deploys instead
     autoIndex: process.env.MONGO_AUTO_INDEX ? process.env.MONGO_AUTO_INDEX === 'true' : process.env.NODE_ENV !== 'production',
   },
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  /** Access tokens are short-lived JWTs; refresh tokens are opaque, stored hashed, rotated on every use. */
+  auth: {
+    accessTtl: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    refreshDays: { user: num('REFRESH_TTL_DAYS_USER', 30), vendor: num('REFRESH_TTL_DAYS_VENDOR', 30), admin: num('REFRESH_TTL_DAYS_ADMIN', 1) },
+  },
   siteUrl: (process.env.SITE_URL || 'http://localhost:5173').replace(/\/$/, ''),
   clientOrigins: list(process.env.CLIENT_ORIGINS, 'http://localhost:5173'),
   serveFrontend: process.env.SERVE_FRONTEND === 'true',

@@ -6,9 +6,11 @@ import { Coupon, CommissionRule } from '../models/Catalog.js';
 import Vendor from '../models/Vendor.js';
 import { getSettings } from './settings.service.js';
 import { getAvailability } from './inventory.service.js';
+import { dealsFor, applyDealsToNights, publicDeal } from './deal.service.js';
 import { ApiError } from '../utils/ApiError.js';
 import { dayRange, nightsBetween, round2, toDay } from '../utils/helpers.js';
 
+import { today } from '../utils/clock.js';
 const WEEKEND = [5, 6]; // Friday & Saturday nights
 
 function ruleMatches(rule, date) {
@@ -24,18 +26,25 @@ function applyRule(price, rule) {
   return price * (1 + rule.value / 100);
 }
 
-/** Price per room for each night. Precedence: per-date override → pricing rule → weekend → base. */
-export async function nightlyRates(roomType, from, to, availabilityNights) {
+/**
+ * Price per room for each night. Precedence: per-date override → pricing rule → weekend → base,
+ * then a live vendor deal (if any) discounts that price — the night keeps `original` + `dealId`.
+ * Pass `deals` when pricing many room types of one property, to avoid one query per room type.
+ */
+export async function nightlyRates(roomType, from, to, availabilityNights, deals, preloadedRules) {
   const dates = dayRange(from, to);
-  const rules = await PricingRule.find({
-    property: roomType.property,
-    isActive: true,
-    $or: [{ roomType: roomType._id }, { roomType: null }, { roomType: { $exists: false } }],
-  })
-    .sort({ priority: -1 })
-    .lean();
+  // `preloadedRules` (active rules, priority desc) lets list pages fetch all rules in one query
+  const rules = preloadedRules
+    ? preloadedRules.filter((r) => String(r.property) === String(roomType.property) && (!r.roomType || String(r.roomType) === String(roomType._id)))
+    : await PricingRule.find({
+        property: roomType.property,
+        isActive: true,
+        $or: [{ roomType: roomType._id }, { roomType: null }, { roomType: { $exists: false } }],
+      })
+        .sort({ priority: -1 })
+        .lean();
 
-  return dates.map((date) => {
+  const base = dates.map((date) => {
     const override = availabilityNights?.find((n) => +toDay(n.date) === +date)?.price;
     if (override !== null && override !== undefined) return { date, amount: round2(override) };
     let price = WEEKEND.includes(date.getUTCDay()) && roomType.weekendPrice ? roomType.weekendPrice : roomType.basePrice;
@@ -43,6 +52,8 @@ export async function nightlyRates(roomType, from, to, availabilityNights) {
     if (rule) price = applyRule(price, rule);
     return { date, amount: round2(Math.max(0, price)) };
   });
+  const live = deals ?? (await dealsFor(roomType.property, from, to));
+  return applyDealsToNights(base, roomType._id, live);
 }
 
 export function gstRateFor(perRoomNightTariff, taxSettings) {
@@ -100,7 +111,7 @@ export async function quoteHotel({ propertyId, roomTypeId, ratePlanCode, checkIn
   const settings = await getSettings();
   const nights = nightsBetween(checkIn, checkOut);
   if (!(nights >= 1)) throw ApiError.badRequest('Check-out must be after check-in');
-  if (toDay(checkIn) < toDay(new Date())) throw ApiError.badRequest('Check-in date cannot be in the past');
+  if (toDay(checkIn) < today()) throw ApiError.badRequest('Check-in date cannot be in the past');
   if (nights > settings.booking.maxNights) throw ApiError.badRequest(`Maximum stay is ${settings.booking.maxNights} nights`);
   if (rooms < 1 || rooms > settings.booking.maxRoomsPerBooking) throw ApiError.badRequest(`You can book 1–${settings.booking.maxRoomsPerBooking} rooms`);
 
@@ -116,9 +127,13 @@ export async function quoteHotel({ propertyId, roomTypeId, ratePlanCode, checkIn
   if (adults + children > rooms * roomType.maxOccupancy) throw ApiError.badRequest(`Max ${roomType.maxOccupancy} guests per room`);
 
   const avail = (await getAvailability([roomType], checkIn, checkOut))[String(roomType._id)];
-  const nightly = await nightlyRates(roomType, checkIn, checkOut, avail.nights);
+  const deals = await dealsFor(propertyId, checkIn, checkOut);
+  const nightly = await nightlyRates(roomType, checkIn, checkOut, avail.nights, deals);
 
   const baseAmount = round2(nightly.reduce((s, n) => s + n.amount, 0) * rooms);
+  // Vendor deal: already inside baseAmount; reported separately so every screen can show "you save"
+  const dealSavings = round2(nightly.reduce((s, n) => s + (n.original ? n.original - n.amount : 0), 0) * rooms);
+  const usedDeal = dealSavings > 0 ? deals.find((d) => nightly.some((n) => String(n.dealId) === String(d._id))) : null;
   const extraAdults = Math.max(0, adults - rooms * roomType.baseOccupancy);
   const extraGuestAmount = round2((extraAdults * roomType.extraAdultCharge + children * roomType.extraChildCharge) * nights);
   const mealPlanAmount = round2((ratePlan.priceAdjustment || 0) * rooms * nights);
@@ -163,6 +178,9 @@ export async function quoteHotel({ propertyId, roomTypeId, ratePlanCode, checkIn
       currency: settings.booking.currency,
       nightly,
       baseAmount,
+      dealSavings,
+      deal: usedDeal ? publicDeal(usedDeal) : undefined,
+      dealNights: dealSavings > 0 ? nightly.filter((n) => n.original).length : 0,
       extraGuestAmount,
       mealPlanAmount,
       discount,

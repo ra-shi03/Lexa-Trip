@@ -1,17 +1,18 @@
 import { Link, useParams } from 'react-router';
 import { Copy, Compass } from 'lucide-react';
 import { Container } from '../Container';
-import { PageLoader, ErrorState, EmptyState, Button, Badge } from '@/components/ui';
+import { ErrorState, EmptyState, Button, Badge } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
+import { ArticleSkeleton, OffersSkeleton } from '../Skeletons';
 import { money, dateLabel, titleCase } from '@/lib/format';
 
 export function StaticPage() {
   const { slug } = useParams();
   const isFaq = slug === 'faq';
   const { data, loading, error } = useApi(() => (isFaq ? api.get('/public/faqs') : api.get(`/public/pages/${slug}`)), [slug]);
-  if (loading) return <PageLoader />;
+  if (loading) return <ArticleSkeleton />;
   if (error) return <Container className="py-16"><ErrorState error={error} /></Container>;
   if (isFaq) {
     const groups = data.reduce((acc, f) => ({ ...acc, [f.category]: [...(acc[f.category] || []), f] }), {});
@@ -39,14 +40,14 @@ export function StaticPage() {
 }
 
 export function Offers() {
-  const { data, loading } = useApi(() => api.get('/public/offers'), []);
+  const { data, loading } = useApi(() => api.get('/public/offers'), [], { live: 'content' });
   const toast = useToast();
   return (
     <Container className="py-10">
       <title>Offers | LexaTrip</title>
       <h1 className="text-3xl font-extrabold">Offers &amp; coupons</h1>
       <p className="mt-1 text-muted">Apply these codes at checkout.</p>
-      {loading ? <PageLoader /> : (
+      {loading ? <OffersSkeleton /> : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data?.map((o) => (
             <div key={o._id} className="card card-pad flex flex-col">

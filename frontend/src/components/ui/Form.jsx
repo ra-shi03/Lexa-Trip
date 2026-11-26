@@ -119,12 +119,12 @@ export function TagInput({ label, hint, value = [], onChange, placeholder = 'Typ
   );
 }
 
-export function ColorField({ label, value, onChange }) {
+export function ColorField({ label, value, onChange, placeholder }) {
   return (
     <Field label={label}>
       <div className="flex items-center gap-2">
         <input type="color" value={value || '#000000'} onChange={(e) => onChange(e.target.value)} className="h-11 w-12 cursor-pointer rounded-brand border border-line bg-card p-1" />
-        <input className="input font-mono text-sm uppercase" value={value || ''} onChange={(e) => onChange(e.target.value)} maxLength={7} />
+        <input className="input font-mono text-sm uppercase placeholder:normal-case placeholder:font-sans" value={value || ''} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} maxLength={7} />
       </div>
     </Field>
   );

@@ -34,12 +34,3 @@ npm run dev                   # http://localhost:5173
 | http://localhost:5173/sitemap.xml · /robots.txt | Sitemaps |
 
 Guest login: any Indian mobile number + OTP `123456` (development mode). Payments run in sandbox mode.
-
-## Documentation
-- [`CLAUDE.md`](CLAUDE.md) — architecture rules & conventions
-- [`docs/TECHNICAL-PROPOSAL.md`](docs/TECHNICAL-PROPOSAL.md) — approach, plan & feasibility (for the client)
-- [`docs/REQUIREMENTS-TRACEABILITY.md`](docs/REQUIREMENTS-TRACEABILITY.md) — every requirement → implementation → status
-- [`docs/MOBILE-APP.md`](docs/MOBILE-APP.md) — customer app, admin-driven branding
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SEO-CMS.md`](docs/SEO-CMS.md) · [`docs/ROLES-AND-PERMISSIONS.md`](docs/ROLES-AND-PERMISSIONS.md)
-- [`docs/THEMING-AND-FEATURES.md`](docs/THEMING-AND-FEATURES.md) · [`docs/AI-FEATURES.md`](docs/AI-FEATURES.md) · [`docs/API.md`](docs/API.md)
-- [`docs/SECURITY-AND-SCALING.md`](docs/SECURITY-AND-SCALING.md) · [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) · [`docs/FLUTTER-MIGRATION.md`](docs/FLUTTER-MIGRATION.md)

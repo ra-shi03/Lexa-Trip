@@ -5,6 +5,7 @@ import { env } from './src/config/env.js';
 import { connectDB } from './src/config/db.js';
 import { createApp } from './src/app.js';
 import { startScheduler } from './src/jobs/scheduler.js';
+import { getSettings } from './src/services/settings.service.js';
 
 /**
  * Process model
@@ -15,6 +16,7 @@ import { startScheduler } from './src/jobs/scheduler.js';
  */
 async function startWorker(runJobs) {
   await connectDB();
+  await getSettings(); // loads the platform timezone (Admin → Region & time) before serving requests
   const app = createApp();
   const server = app.listen(env.port, () => {
     console.log(`[api] pid ${process.pid} → http://localhost:${env.port} (${env.nodeEnv})${runJobs ? ' · jobs on' : ''}`);
@@ -38,6 +40,8 @@ const n = env.clusterWorkers === -1 ? os.availableParallelism() : env.clusterWor
 if (n > 1 && cluster.isPrimary) {
   console.log(`[cluster] primary ${process.pid} starting ${n} workers`);
   for (let i = 1; i <= n; i++) cluster.fork({ WORKER_NO: String(i) });
+  // Live updates: relay a worker's event to every worker so all open SSE streams get it
+  cluster.on('message', (_w, m) => { if (m?.__ltLive) for (const w of Object.values(cluster.workers)) w?.send(m); });
   cluster.on('exit', (w, code) => {
     console.error(`[cluster] worker ${w.process.pid} exited (${code}) — restarting`);
     cluster.fork({ WORKER_NO: String(Math.floor(Math.random() * 1000) + 100) }); // replacement does not run jobs

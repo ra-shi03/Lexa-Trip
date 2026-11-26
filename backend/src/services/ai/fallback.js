@@ -1,5 +1,6 @@
 import { addDays, isoDay, toDay } from '../../utils/helpers.js';
 
+import { today as platformToday } from '../../utils/clock.js';
 /**
  * Rule-based natural-language parser used when no AI key is configured
  * (and as a safety net if the AI call fails). Handles common Indian travel phrasing.
@@ -27,7 +28,7 @@ const AMENITY_WORDS = {
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 function parseDates(t) {
-  const today = toDay(new Date());
+  const today = platformToday();
   let checkIn;
   let nights;
   const m = t.match(/(\d{1,2})(?:st|nd|rd|th)?\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s*(?:to|-|till|until)\s*(\d{1,2})(?:st|nd|rd|th)?\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)?)?/);

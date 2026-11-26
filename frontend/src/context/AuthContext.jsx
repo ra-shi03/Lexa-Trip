@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { api, tokens, onUnauthorized } from '../lib/api';
+import { api, tokens, onUnauthorized, endSession, TOKEN_KEYS } from '../lib/api';
 
 /**
  * Three independent sessions (guest user, vendor, admin) so one browser can be
@@ -26,7 +26,16 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     ['user', 'vendor', 'admin'].forEach(loadRole);
-    return onUnauthorized((role) => setState((s) => ({ ...s, [role]: null })));
+    const offUnauth = onUnauthorized((role) => setState((s) => ({ ...s, [role]: null })));
+    // Other tabs: signing out there signs out here; signing in there loads the account here
+    const onStorage = (e) => {
+      const role = Object.keys(TOKEN_KEYS).find((r) => TOKEN_KEYS[r] === e.key);
+      if (!role) return;
+      if (!e.newValue) setState((s) => ({ ...s, [role]: null }));
+      else if (!e.oldValue) loadRole(role);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => { offUnauth(); window.removeEventListener('storage', onStorage); };
   }, [loadRole]);
 
   const login = useCallback((role, token, account) => {
@@ -34,8 +43,8 @@ export function AuthProvider({ children }) {
     setState((s) => ({ ...s, [role]: account }));
   }, []);
   const logout = useCallback((role) => {
-    tokens.clear(role);
     setState((s) => ({ ...s, [role]: null }));
+    return endSession(role); // revokes the refresh token server-side + clears the cookie
   }, []);
   const refresh = useCallback((role) => loadRole(role), [loadRole]);
   const update = useCallback((role, patch) => setState((s) => ({ ...s, [role]: { ...s[role], ...patch } })), []);

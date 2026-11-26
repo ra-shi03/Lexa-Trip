@@ -3,6 +3,7 @@ import { publishScheduled } from '../services/seo/content.service.js';
 import Booking from '../models/Booking.js';
 import { toDay } from '../utils/helpers.js';
 
+import { today } from '../utils/clock.js';
 /**
  * Lightweight in-process scheduler (single instance).
  * For multi-instance deployments move these to a queue (BullMQ/Agenda) or a single cron worker.
@@ -16,7 +17,7 @@ const jobs = [
     run: async () => {
       // Stays whose checkout date has passed without a manual check-out are marked completed
       const r = await Booking.updateMany(
-        { type: 'hotel', status: { $in: ['confirmed', 'checked_in'] }, checkOut: { $lt: toDay(new Date()) } },
+        { type: 'hotel', status: { $in: ['confirmed', 'checked_in'] }, checkOut: { $lt: today() } },
         { $set: { status: 'completed' }, $push: { statusHistory: { status: 'completed', by: 'system', note: 'Auto-completed after checkout date', at: new Date() } } },
       );
       return r.modifiedCount;

@@ -35,6 +35,7 @@ const VendorDashboard = v('VendorDashboard');
 const VendorProperties = v('VendorProperties');
 const VendorPropertyEdit = v('VendorPropertyEdit');
 const VendorInventory = v('VendorInventory');
+const VendorDeals = v('VendorDeals');
 const VendorBookings = v('VendorBookings');
 const VendorEarnings = v('VendorEarnings');
 const VendorReports = v('VendorReports');
@@ -57,10 +58,10 @@ const seoTools = () => import('./pages/admin/seo/SeoTools');
 
 const A = {
   Users: mod(people, 'UsersPage'), Vendors: mod(people, 'VendorsPage'), VendorDetail: mod(people, 'VendorDetailPage'), Properties: mod(people, 'PropertiesPage'), Subadmins: mod(people, 'SubadminsPage'), Audit: mod(people, 'AuditPage'),
-  Bookings: mod(ops, 'AdminBookings'), Inventory: mod(ops, 'AdminInventory'), PropertyEdit: mod(ops, 'AdminPropertyEdit'), Reviews: mod(ops, 'ReviewsPage'), Support: mod(ops, 'SupportPage'), AiLogs: mod(ops, 'AiConversationsPage'),
+  Bookings: mod(ops, 'AdminBookings'), Inventory: mod(ops, 'AdminInventory'), Deals: mod(ops, 'AdminDeals'), PropertyEdit: mod(ops, 'AdminPropertyEdit'), Reviews: mod(ops, 'ReviewsPage'), Support: mod(ops, 'SupportPage'), AiLogs: mod(ops, 'AiConversationsPage'),
   Transactions: mod(ops, 'TransactionsPage'), Refunds: mod(ops, 'RefundsPage'), Payouts: mod(ops, 'PayoutsPage'), Reports: mod(ops, 'AdminReports'),
   Categories: mod(res, 'Categories'), Amenities: mod(res, 'Amenities'), Coupons: mod(res, 'Coupons'), Banners: mod(res, 'Banners'), Pages: mod(res, 'Pages'), Faqs: mod(res, 'Faqs'), Commission: mod(res, 'CommissionRules'),
-  Appearance: mod(settings, 'AppearanceSettings'), HomeContent: mod(settings, 'HomeContentSettings'), MobileApp: mod(settings, 'MobileAppSettings'), LoginPage: mod(settings, 'LoginPageSettings'), Features: mod(settings, 'FeatureSettings'), Integrations: mod(settings, 'IntegrationSettings'), Business: mod(settings, 'BusinessSettings'),
+  Appearance: mod(settings, 'AppearanceSettings'), HomeContent: mod(settings, 'HomeContentSettings'), MobileApp: mod(settings, 'MobileAppSettings'), Region: mod(settings, 'RegionSettings'), LoginPage: mod(settings, 'LoginPageSettings'), Features: mod(settings, 'FeatureSettings'), Integrations: mod(settings, 'IntegrationSettings'), Business: mod(settings, 'BusinessSettings'),
   SeoOverview: mod(seoHome, 'SeoOverview'), SeoExplorer: mod(seoHome, 'SeoExplorer'),
   HotelEditor: mod(seoEd, 'HotelEditor'), ItineraryEditor: mod(seoEd, 'ItineraryEditor'), ArticleEditor: mod(seoEd, 'ArticleEditor'), NodeEditor: mod(seoEd, 'NodeEditor'),
   Media: mod(seoTools, 'MediaLibrary'), Import: mod(seoTools, 'BulkImport'), Sitemap: mod(seoTools, 'SitemapPage'), Redirects: mod(seoTools, 'RedirectsPage'), Destinations: mod(seoTools, 'DestinationsPage'),
@@ -122,6 +123,7 @@ const router = createBrowserRouter([
       { path: 'properties', element: S(<VendorProperties />) },
       { path: 'properties/:id', element: S(<VendorPropertyEdit />) },
       { path: 'inventory', element: S(<VendorInventory />) },
+      { path: 'deals', element: S(<VendorDeals />) },
       { path: 'bookings', element: S(<VendorBookings />) },
       { path: 'earnings', element: S(<VendorEarnings />) },
       { path: 'reports', element: S(<VendorReports />) },
@@ -141,6 +143,7 @@ const router = createBrowserRouter([
       { path: 'properties', element: P('properties', <A.Properties />) },
       { path: 'properties/:id', element: P('properties', <A.PropertyEdit />) },
       { path: 'inventory', element: P('inventory', <A.Inventory />) },
+      { path: 'deals', element: P('inventory', <A.Deals />) },
       { path: 'bookings', element: P('bookings', <A.Bookings />) },
       { path: 'reviews', element: P('reviews', <A.Reviews />) },
       { path: 'support', element: P('support', <A.Support />) },
@@ -165,6 +168,7 @@ const router = createBrowserRouter([
       { path: 'settings/features', element: P('appearance', <A.Features />) },
       { path: 'settings/integrations', element: P('integrations', <A.Integrations />) },
       { path: 'settings/business', element: P('finance', <A.Business />) },
+      { path: 'settings/region', element: P(null, <A.Region />, true) }, // master admin only
       { path: 'subadmins', element: P(null, <A.Subadmins />, true) },
       { path: 'audit', element: P(null, <A.Audit />, true) },
       { path: 'seo', element: P('seo', <A.SeoOverview />) },

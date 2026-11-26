@@ -91,7 +91,7 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
             <div className="md:col-span-2"><h2 className="text-lg font-extrabold">Basic information</h2><p className="text-sm text-muted">What guests see first on the search results and at the top of your stay page.</p></div>
             {admin && isNew && <Select label="Vendor (owner)" required placeholder="Select vendor" value={p.vendor || ''} onChange={(e) => set('vendor', e.target.value)} options={(vendors || []).map((v) => ({ value: v._id, label: `${v.businessName} (${v.email})` }))} className="md:col-span-2" />}
             <Input label="Property name" required value={p.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Pink City Courtyard Hotel" className="md:col-span-2" />
-            <Select label="Property type" required placeholder="Select type" value={p.category?._id || p.category} onChange={(e) => set('category', e.target.value)} options={(cats || []).map((c) => ({ value: c._id, label: c.name }))} hint="Hotel, villa, resort, homestay…" />
+            <Select label="Property type" required placeholder="Select type" value={p.category?._id || p.category} onChange={(e) => set('category', e.target.value)} options={(cats || []).filter((c) => c.kind !== 'deals').map((c) => ({ value: c._id, label: c.name }))} hint="Hotel, villa, resort, homestay…" />
             <Select label="Star rating" value={p.starRating} onChange={(e) => set('starRating', Number(e.target.value))} options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: n, label: n ? `${'★'.repeat(n)}  ${n} star` : 'Not rated' }))} />
           </section>
 

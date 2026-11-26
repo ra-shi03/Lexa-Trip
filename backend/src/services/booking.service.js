@@ -52,7 +52,7 @@ export async function createHotelBooking({ user, input, source = 'web' }) {
       snapshot: { propertyName: quote.property.name, roomName: quote.roomType.name, city: quote.property.city, image: quote.property.image },
       primaryGuest: input.primaryGuest,
       specialRequests: input.specialRequests,
-      pricing: quote.pricing,
+      pricing: { ...quote.pricing, dealTitle: quote.pricing.deal?.title }, // deal savings are recorded on the booking
       commission: { ...commission, amount: commAmt },
       vendorPayoutAmount: round2(commissionBase - commAmt),
       status: 'pending_payment',

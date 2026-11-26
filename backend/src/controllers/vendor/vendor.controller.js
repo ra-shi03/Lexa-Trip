@@ -8,9 +8,10 @@ import { ok } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { toDay, addDays } from '../../utils/helpers.js';
 
+import { today as platformToday } from '../../utils/clock.js';
 export async function dashboard(req, res) {
   const vendor = req.vendor._id;
-  const today = toDay(new Date());
+  const today = platformToday();
   const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
   const live = { $nin: ['pending_payment', 'failed', 'expired', 'cancelled'] };
   const [properties, statusCounts, arrivals, departures, pendingApproval, month, recent, inv] = await Promise.all([

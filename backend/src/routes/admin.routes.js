@@ -13,11 +13,12 @@ import * as people from '../controllers/admin/people.controller.js';
 import * as fin from '../controllers/admin/finance.controller.js';
 import * as sys from '../controllers/admin/system.controller.js';
 import seoRoutes from './seo.routes.js';
+import { publishAdminWrites } from '../services/live.service.js';
 
 const r = Router();
 validateObjectIdParams(r);
 const pm = propertyManager('admin');
-r.use(requireAdmin, stripRevenueForSubadmin);
+r.use(requireAdmin, stripRevenueForSubadmin, publishAdminWrites); // guest-visible changes → live update to open apps
 
 r.get('/dashboard', can('dashboard'), dash.dashboard);
 
@@ -48,6 +49,11 @@ r.get('/properties/:id/pricing-rules', can('properties', 'inventory'), pm.pricin
 r.post('/properties/:id/pricing-rules', can('inventory'), pm.createPricingRule);
 r.put('/properties/:id/pricing-rules/:ruleId', can('inventory'), pm.updatePricingRule);
 r.delete('/properties/:id/pricing-rules/:ruleId', can('inventory'), pm.removePricingRule);
+// Vendor deals ("Deals of the day") — admin sees and can manage every vendor's
+r.get('/deals', can('properties', 'inventory'), pm.deals);
+r.post('/deals', can('inventory'), pm.createDeal);
+r.put('/deals/:dealId', can('inventory'), pm.updateDeal);
+r.delete('/deals/:dealId', can('inventory'), pm.removeDeal);
 r.get('/properties/:id/inventory', can('inventory'), pm.inventory);
 r.put('/properties/:id/inventory', can('inventory'), pm.updateInventory);
 r.get('/properties/:id/channel-manager', can('inventory'), pm.channel);

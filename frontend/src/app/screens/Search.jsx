@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router';
-import { Search as SearchIcon, SlidersHorizontal, Sparkles, TrendingDown, X } from 'lucide-react';
+import { Search as SearchIcon, SlidersHorizontal, Sparkles, TrendingDown, X, Flame } from 'lucide-react';
 import { StaySearchForm } from '@/components/search/SearchForms';
 import { PropertyRow, FilterSplit } from '@/components/stay/StayComponents';
-import { Button, Skeleton, EmptyState, ErrorState, Pagination } from '@/components/ui';
+import { Button, EmptyState, ErrorState, Pagination } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
+import { PropertyRowSkeleton } from '../Skeletons';
 import { money, plural, dateLabel, cx } from '@/lib/format';
 
 const SORTS = [
@@ -64,12 +65,18 @@ export default function Search() {
   const toast = useToast();
   const key = params.toString();
   const { data, meta, loading, error, reload } = useApi(() => api.get('/public/properties', Object.fromEntries(params)), [key]);
-  const { data: categories } = useApi(() => api.get('/public/categories'), []);
-  const { data: amenities } = useApi(() => api.get('/public/amenities'), []);
+  const { data: categories } = useApi(() => api.get('/public/categories'), [], { live: 'content' });
+  const { data: amenities } = useApi(() => api.get('/public/amenities'), [], { live: 'content' });
 
   const set = (k, v) => setParams((p) => { const n = new URLSearchParams(p); if (v === '' || v === undefined || v === null) n.delete(k); else n.set(k, v); n.delete('page'); return n; }, { replace: true });
   const sort = params.get('sort') || 'recommended';
-  const query = useMemo(() => Object.fromEntries(['checkIn', 'checkOut', 'adults', 'children', 'rooms'].filter((k) => params.get(k)).map((k) => [k, params.get(k)])), [key]);
+  const query = useMemo(() => {
+    const q = Object.fromEntries(['checkIn', 'checkOut', 'adults', 'children', 'rooms'].filter((k) => params.get(k)).map((k) => [k, params.get(k)]));
+    // Deals default to tonight on the server — carry those dates to the stay page so the deal price follows the guest
+    if (meta?.deals && !q.checkIn) { q.checkIn = String(meta.checkIn).slice(0, 10); q.checkOut = String(meta.checkOut).slice(0, 10); }
+    return q;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, meta?.deals, meta?.checkIn]);
   const activeFilters = ['category', 'amenities', 'minPrice', 'maxPrice', 'rating', 'stars'].filter((k) => params.get(k));
   const saved = new Set((user?.wishlist || []).map(String));
 
@@ -93,9 +100,15 @@ export default function Search() {
       : `Prices in ${meta.city.name} for your dates are around ${money(cheapest.nightlyFrom)}+/night. Flexible? Try weekdays for lower rates.`
     : null;
 
+  // "Deals of the day" (a category of kind "deals", or ?deals=today): tonight's vendor offers
+  const isDeals = Boolean(meta?.deals);
+  const dealsCat = categories?.find((c) => c.kind === 'deals' && String(params.get('category') || '').split(',').includes(c.slug));
+  const catName = (slugs) => String(slugs).split(',').map((s) => categories?.find((c) => c.slug === s)?.name || s).join(', ');
+  const FILTER_LABEL = { category: 'Type', amenities: 'Amenities', minPrice: 'Min ₹', maxPrice: 'Max ₹', rating: 'Rating', stars: 'Stars' };
+
   const [editing, setEditing] = useState(false);
   const guests = (Number(params.get('adults')) || 2) + (Number(params.get('children')) || 0);
-  const title = meta?.city ? meta.city.name : params.get('city') || 'All stays';
+  const title = isDeals ? (dealsCat?.name || 'Deals of the day') : meta?.city ? meta.city.name : params.get('city') || 'All stays';
   const summary = [meta ? `${dateLabel(meta.checkIn)} – ${dateLabel(meta.checkOut)}` : 'Any dates', plural(guests, 'guest')].join(' · ');
 
   return (
@@ -112,8 +125,10 @@ export default function Search() {
 
       <div className="px-4 pt-5">
         <div className="mb-4">
-          <h1 className="text-2xl font-extrabold leading-tight">{meta?.city ? `Stays in ${meta.city.name}` : params.get('city') ? `Results for “${params.get('city')}”` : 'All stays'}</h1>
-          <p className="mt-1 text-[15px] text-muted">{meta ? `${plural(meta.total, 'property', 'properties')} · ${plural(meta.nights, 'night')}` : ' '}</p>
+          <h1 className="flex items-center gap-2 text-2xl font-extrabold leading-tight">
+            {isDeals ? `${dealsCat?.name || 'Deals of the day'}${meta?.city ? ` in ${meta.city.name}` : ''}` : meta?.city ? `Stays in ${meta.city.name}` : params.get('city') ? `Results for “${params.get('city')}”` : 'All stays'}
+          </h1>
+          <p className="mt-1 text-[15px] text-muted">{meta ? `${plural(meta.total, isDeals ? 'stay on offer' : 'property', isDeals ? 'stays on offer' : 'properties')} · ${plural(meta.nights, 'night')}` : ' '}</p>
           {params.get('ai') && <span className="badge badge-primary mt-2 h-7"><Sparkles size={13} />Filters set by Lexa AI from your request</span>}
         </div>
 
@@ -132,21 +147,23 @@ export default function Search() {
         <div className="min-w-0 space-y-4">
           {activeFilters.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {activeFilters.map((k) => <button key={k} className="chip h-9 text-[13px]" onClick={() => set(k, '')}>{k}: {params.get(k)} <X size={13} /></button>)}
+              {activeFilters.map((k) => <button key={k} className="chip h-9 text-[13px]" onClick={() => set(k, '')}>{k === 'category' ? catName(params.get(k)) : `${FILTER_LABEL[k] || k}: ${params.get(k)}`} <X size={13} /></button>)}
               <button className="h-9 px-2 text-[13px] font-bold text-primary" onClick={() => setParams((p) => { const n = new URLSearchParams(p); activeFilters.forEach((k) => n.delete(k)); return n; })}>Clear all</button>
             </div>
           )}
 
-          {insight && (
+          {insight && !isDeals && (
             <div className="flex items-start gap-3 rounded-brand-lg border border-primary/25 bg-primary-soft/60 p-4 text-[15px] leading-snug">
               <TrendingDown size={20} className="mt-0.5 flex-none text-primary" />
               <p><b className="text-secondary">Price insight · </b>{insight}</p>
             </div>
           )}
 
-          {loading && !data && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-52" />)}
+          {loading && !data && Array.from({ length: 3 }).map((_, i) => <PropertyRowSkeleton key={i} />)}
           {error && <ErrorState error={error} onRetry={reload} />}
-          {!loading && data?.length === 0 && <div className="card"><EmptyState title="No stays match your search" text="Try another destination, different dates or fewer filters." /></div>}
+          {!loading && data?.length === 0 && (isDeals
+            ? <div className="card"><EmptyState icon={Flame} title="No deals live right now" text="Hotels add fresh offers through the day — check back later, or browse all stays." action={<Button onClick={() => setParams((p) => { const n = new URLSearchParams(p); n.delete('category'); n.delete('deals'); return n; })}>Browse all stays</Button>} /></div>
+            : <div className="card"><EmptyState title="No stays match your search" text="Try another destination, different dates or fewer filters." /></div>)}
           {data?.map((p) => <PropertyRow key={p._id} p={p} query={query} saved={saved.has(String(p._id))} onToggleSave={feature('wishlist') ? toggleSave : undefined} />)}
           <Pagination meta={meta} onPage={(pg) => setParams((p) => { const n = new URLSearchParams(p); n.set('page', pg); return n; })} />
         </div>

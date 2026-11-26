@@ -3,6 +3,7 @@ import { useParams } from 'react-router';
 import { Check, X, Send, Download, Plus, Receipt, Percent, RotateCcw } from 'lucide-react';
 import { PropertyEditor } from '../../components/panel/PropertyEditor';
 import { InventoryPage } from '../../components/panel/InventoryGrid';
+import { DealsPage } from '../../components/panel/DealsPage';
 import { BookingsPanel } from '../../components/panel/BookingsPanel';
 import { ReportsView } from '../../components/panel/ReportsView';
 import { BarsChart, TrendChart } from '../../components/panel/Charts';
@@ -18,6 +19,7 @@ export const AdminBookings = () => {
   return <div><PageHeader title="Bookings" subtitle="Hotel, bus and flight bookings across the platform" /><BookingsPanel apiBase="/admin" admin showRevenue={isMaster} /></div>;
 };
 export const AdminInventory = () => <InventoryPage apiBase="/admin" />;
+export const AdminDeals = () => <DealsPage apiBase="/admin" />;
 export function AdminPropertyEdit() {
   const { id } = useParams();
   return <PropertyEditor apiBase="/admin" id={id} listPath="/admin/properties" admin />;

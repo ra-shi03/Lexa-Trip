@@ -4,11 +4,12 @@ import { CheckCircle2, Printer, MapPin, Calendar, Users, Phone, Mail, Bus, Plane
 import { Container } from '../Container';
 import { PriceBreakdown } from '@/components/stay/StayComponents';
 import { PaymentStep } from '@/components/travel/PaymentStep';
-import { Button, StatusBadge, PageLoader, ErrorState, ConfirmDialog, Img, Modal, Textarea, Badge } from '@/components/ui';
+import { Button, StatusBadge, ErrorState, ConfirmDialog, Img, Modal, Textarea, Badge } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 import { useSettings } from '@/context/SettingsContext';
+import { BookingSkeleton } from '../Skeletons';
 import { dateFull, dateTime, time, duration, money, plural, titleCase } from '@/lib/format';
 
 /** Confirmation + voucher + manage booking (cancel, review, support) — one screen for all services */
@@ -23,7 +24,7 @@ export default function BookingDetail() {
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState(null);
 
-  if (loading) return <PageLoader />;
+  if (loading) return <BookingSkeleton />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const isNew = sp.get('new') && ['confirmed', 'pending_approval'].includes(b.status);
@@ -99,7 +100,7 @@ export default function BookingDetail() {
           <div className="rounded-brand border border-line p-4">
             <p className="mb-3 font-bold">Payment summary</p>
             {b.type === 'hotel' ? <PriceBreakdown pricing={b.pricing} nights={b.nights} rooms={b.rooms} /> : (
-              <div className="space-y-2 text-sm"><div className="flex justify-between"><span className="text-muted">Fare</span><span>{money(b.pricing.baseAmount, true)}</span></div>{b.pricing.discount > 0 && <div className="flex justify-between text-success"><span>Discount</span><span>− {money(b.pricing.discount, true)}</span></div>}<div className="flex justify-between"><span className="text-muted">Taxes</span><span>{money(b.pricing.taxes, true)}</span></div><div className="divider" /><div className="flex justify-between font-extrabold"><span>Total</span><span>{money(b.pricing.totalAmount, true)}</span></div></div>
+              <div className="space-y-2 text-sm"><div className="flex justify-between"><span className="text-muted">Fare</span><span>{money(b.pricing.baseAmount + (b.pricing.dealSavings || 0), true)}</span></div>{b.pricing.dealSavings > 0 && <div className="flex justify-between text-success"><span>Hotel deal{b.pricing.dealTitle ? ` (${b.pricing.dealTitle})` : ''}</span><span>− {money(b.pricing.dealSavings, true)}</span></div>}{b.pricing.discount > 0 && <div className="flex justify-between text-success"><span>Discount</span><span>− {money(b.pricing.discount, true)}</span></div>}<div className="flex justify-between"><span className="text-muted">Taxes</span><span>{money(b.pricing.taxes, true)}</span></div><div className="divider" /><div className="flex justify-between font-extrabold"><span>Total</span><span>{money(b.pricing.totalAmount, true)}</span></div></div>
             )}
             <p className="mt-3 text-xs text-muted">Payment: <StatusBadge status={b.paymentStatus} /></p>
             {b.cancellation?.refundAmount > 0 && <p className="mt-2 text-xs font-semibold text-success">Refund {money(b.cancellation.refundAmount, true)} · {titleCase(b.cancellation.refundStatus)}</p>}

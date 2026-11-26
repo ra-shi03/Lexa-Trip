@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
+import { useLive } from '../lib/live';
 
+import { setPlatformTimezone } from '../lib/format';
 /**
  * Dynamic platform configuration from Master Admin:
  *  - theme tokens  → applied as CSS variables (re-themes Tailwind + vanilla CSS instantly)
@@ -75,6 +77,7 @@ export function SettingsProvider({ children }) {
   const reload = useCallback(async () => {
     try {
       const { data } = await api.get('/public/settings');
+      setPlatformTimezone(data.regional?.timezone); // every date/time on screen follows Admin → Region & time
       setSettings({ ...FALLBACK, ...data, features: { ...FALLBACK.features, ...data.features } });
       applyTheme(data.theme);
       applyBrand(data);
@@ -86,6 +89,8 @@ export function SettingsProvider({ children }) {
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
+  // Admin saved theme / branding / features / home / app settings → apply live, no refresh
+  useLive('settings', reload, { delay: 250 });
 
   const value = useMemo(() => ({ ...settings, loading, reload, feature: (k) => settings.features?.[k] !== false }), [settings, loading, reload]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

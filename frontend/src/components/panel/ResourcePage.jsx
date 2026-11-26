@@ -6,6 +6,13 @@ import { useToast } from '../../context/ToastContext';
 import { DataTable, PageHeader, Button, Modal, Input, Textarea, Select, Toggle, TagInput, ConfirmDialog } from '../ui';
 import { RichText } from '../editor/RichText';
 import { SingleImage } from './ImageUploader';
+import { IconPicker } from '../editor/IconPicker';
+
+/** "Accommodation categories" → "accommodation category", "Coupons" → "coupon", "FAQs" → "FAQ" */
+const singular = (t) => {
+  const s = /ies$/i.test(t) ? t.replace(/ies$/i, 'y') : t.replace(/s$/, '');
+  return /^[A-Z]{2,}/.test(s) ? s : s.toLowerCase();
+};
 
 /**
  * Config-driven CRUD screen. One component powers many admin resources.
@@ -41,6 +48,7 @@ export function ResourcePage({ title, subtitle, endpoint, columns, fields, defau
       case 'number': return <Input {...common} type="number" value={v ?? ''} onChange={(e) => set(e.target.value === '' ? '' : Number(e.target.value))} />;
       case 'date': return <Input {...common} type="date" value={v ? String(v).slice(0, 10) : ''} onChange={(e) => set(e.target.value || null)} />;
       case 'select': return <Select {...common} placeholder={f.placeholder} value={v ?? ''} onChange={(e) => set(e.target.value)} options={typeof f.options === 'function' ? f.options(edit) : f.options} />;
+      case 'icon': return <div key={f.name} className={f.full ? 'sm:col-span-2' : ''}><IconPicker label={f.label} value={v || ''} onChange={set} /></div>;
       case 'toggle': return <div key={f.name} className={`flex items-end pb-2 ${f.full ? 'sm:col-span-2' : ''}`}><Toggle label={f.label} description={f.hint} checked={Boolean(v)} onChange={set} /></div>;
       case 'tags': return <TagInput {...common} value={v || []} onChange={set} />;
       case 'multiselect': return (
@@ -65,7 +73,7 @@ export function ResourcePage({ title, subtitle, endpoint, columns, fields, defau
         onPage={setPage}
         columns={[...columns, { key: '_actions', label: '', align: 'right', render: (r) => <div className="flex justify-end gap-1"><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setEdit(transformIn({ ...r }))} /><Button size="xs" variant="ghost" icon={Trash2} className="text-danger" onClick={() => setDel(r)} /></div> }]}
       />
-      <Modal open={Boolean(edit)} onClose={() => setEdit(null)} title={edit?._id ? `Edit ${title.replace(/s$/, '').toLowerCase()}` : `Add ${title.replace(/s$/, '').toLowerCase()}`} size="lg" footer={<><Button variant="ghost" onClick={() => setEdit(null)}>Cancel</Button><Button loading={busy} onClick={save}>Save</Button></>}>
+      <Modal open={Boolean(edit)} onClose={() => setEdit(null)} title={`${edit?._id ? 'Edit' : 'Add'} ${singular(title)}`} size="lg" footer={<><Button variant="ghost" onClick={() => setEdit(null)}>Cancel</Button><Button loading={busy} onClick={save}>Save</Button></>}>
         {edit && <div className="grid gap-4 sm:grid-cols-2">{fields.map(renderField)}</div>}
       </Modal>
       <ConfirmDialog open={Boolean(del)} onClose={() => setDel(null)} title="Delete this item?" message="This cannot be undone." confirmLabel="Delete" onConfirm={async () => { try { await api.del(`${endpoint}/${del._id}`); setDel(null); reload(); toast.success('Deleted'); } catch (e) { toast.error(e); } }} />

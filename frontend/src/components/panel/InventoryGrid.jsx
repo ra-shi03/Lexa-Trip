@@ -4,7 +4,7 @@ import { api } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../context/ToastContext';
 import { Button, Modal, Input, Select, Toggle, Checkbox, Skeleton, Alert, EmptyState } from '../ui';
-import { isoDate, addDays, money, cx } from '../../lib/format';
+import { isoDate, addDays, money, cx, weekday } from '../../lib/format';
 
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -57,7 +57,7 @@ export function InventoryGrid({ apiBase, propertyId }) {
             <thead>
               <tr className="bg-surface">
                 <th className="sticky left-0 z-10 min-w-[180px] bg-surface px-4 py-2 text-left text-xs font-bold uppercase text-muted">Room type</th>
-                {dates.map((d) => { const dt = new Date(d); const we = [5, 6].includes(dt.getDay()); return <th key={d} className={cx('inv-cell font-semibold', we && 'weekend')}><span className="block text-[10px] text-muted">{DOW[dt.getDay()]}</span>{dt.getDate()}</th>; })}
+                {dates.map((d) => { const dt = new Date(`${d}T00:00:00Z`); const we = [5, 6].includes(weekday(d)); return <th key={d} className={cx('inv-cell font-semibold', we && 'weekend')}><span className="block text-[10px] text-muted">{DOW[weekday(d)]}</span>{dt.getUTCDate()}</th>; })}
               </tr>
             </thead>
             <tbody>
@@ -66,7 +66,7 @@ export function InventoryGrid({ apiBase, propertyId }) {
                   <td className="sticky left-0 z-10 bg-card px-4 py-2"><p className="font-semibold">{row.roomType.name}</p><p className="text-xs text-muted">{row.roomType.totalRooms} rooms · {money(row.roomType.basePrice)}</p></td>
                   {dates.map((d) => {
                     const c = row.cells.find((x) => x.date === d);
-                    const we = [5, 6].includes(new Date(d).getDay());
+                    const we = [5, 6].includes(weekday(d));
                     return (
                       <td key={d} className={cx('inv-cell cursor-pointer hover:bg-primary-soft', c?.closed ? 'closed' : c && c.available <= 2 ? 'low' : we && 'weekend')} onClick={() => openBulk(row.roomType._id, d)} title={c ? `Total ${c.total} · Booked ${c.booked} · Blocked ${c.blocked}${c.closed ? ' · STOP-SELL' : ''}` : ''}>
                         <span className="block text-base font-extrabold text-ink">{c ? c.available : '—'}</span>

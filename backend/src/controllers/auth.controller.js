@@ -2,7 +2,7 @@ import { z } from 'zod';
 import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
 import Admin from '../models/Admin.js';
-import { signToken } from '../middlewares/auth.js';
+import { issueSession, rotateSession, revokeSession, revokeAllSessions } from '../services/token.service.js';
 import { sendOtp, verifyOtp } from '../services/otp.service.js';
 import { notify } from '../services/notification/notification.service.js';
 import { ok, created } from '../utils/response.js';
@@ -60,7 +60,7 @@ export async function userVerifyOtp(req, res) {
   if (user.status === 'blocked') throw ApiError.forbidden('Your account has been blocked. Please contact support.');
   user.lastLoginAt = new Date();
   await user.save();
-  ok(res, { token: signToken(user._id, 'user'), user, isNew });
+  ok(res, { ...(await issueSession(req, res, 'user', user._id)), user, isNew });
 }
 
 export async function userMe(req, res) {
@@ -74,7 +74,7 @@ export async function vendorRegister(req, res) {
   await notify({ recipientType: 'admin', title: 'New vendor registration', body: `${vendor.businessName} (${vendor.email}) is awaiting approval`, type: 'vendor_pending', data: { vendorId: vendor._id } });
   const v = vendor.toObject();
   delete v.password;
-  created(res, { token: signToken(vendor._id, 'vendor'), vendor: v }, 'Registered — your account is pending admin approval');
+  created(res, { ...(await issueSession(req, res, 'vendor', vendor._id)), vendor: v }, 'Registered — your account is pending admin approval');
 }
 
 export async function vendorLogin(req, res) {
@@ -85,7 +85,7 @@ export async function vendorLogin(req, res) {
   await vendor.save();
   const v = vendor.toObject();
   delete v.password;
-  ok(res, { token: signToken(vendor._id, 'vendor'), vendor: v });
+  ok(res, { ...(await issueSession(req, res, 'vendor', vendor._id)), vendor: v });
 }
 
 export async function vendorMe(req, res) {
@@ -101,7 +101,7 @@ export async function adminLogin(req, res) {
   await admin.save();
   const a = admin.toObject();
   delete a.password;
-  ok(res, { token: signToken(admin._id, 'admin'), admin: { ...a, effectivePermissions: effectivePermissions(admin) } });
+  ok(res, { ...(await issueSession(req, res, 'admin', admin._id)), admin: { ...a, effectivePermissions: effectivePermissions(admin) } });
 }
 
 export const effectivePermissions = (admin) =>
@@ -119,5 +119,21 @@ export async function changePassword(req, res) {
   if (!(await acc.checkPassword(currentPassword || ''))) throw ApiError.badRequest('Current password is incorrect');
   acc.password = newPassword;
   await acc.save();
-  ok(res, null, undefined, 'Password updated');
+  // Sign out every other device; this one keeps its session
+  await revokeAllSessions(req.admin ? 'admin' : 'vendor', acc._id, { exceptReq: req, reason: 'password_change' });
+  ok(res, null, undefined, 'Password updated — other devices have been signed out');
 }
+
+// ── Sessions (all audiences) ──
+/** POST /auth/:type/refresh — web: httpOnly cookie, app: { refreshToken } → new access (+ rotated refresh) token */
+export const refresh = (type) => async (req, res) => ok(res, await rotateSession(req, res, type));
+
+/** POST /auth/:type/logout — revokes this device's refresh token. Works with an expired access token. */
+export const logout = (type) => async (req, res) => { await revokeSession(req, res, type); ok(res, null, undefined, 'Signed out'); };
+
+/** POST /auth/:type/logout-all — signs the account out on every device (requires a valid access token). */
+export const logoutAll = (type) => async (req, res) => {
+  const n = await revokeAllSessions(type, req[type]._id);
+  await revokeSession(req, res, type);
+  ok(res, { revoked: n }, undefined, 'Signed out on all devices');
+};

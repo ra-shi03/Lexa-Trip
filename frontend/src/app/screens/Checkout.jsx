@@ -3,11 +3,12 @@ import { useSearchParams, Link } from 'react-router';
 import { Tag, Check, Calendar, Users, User, Mail, Phone, ChevronDown, ShieldCheck, AlertCircle } from 'lucide-react';
 import { PriceBreakdown } from '@/components/stay/StayComponents';
 import { PaymentStep } from '@/components/travel/PaymentStep';
-import { Button, Img, Alert, PageLoader, ErrorState, Badge } from '@/components/ui';
+import { Button, Img, Alert, ErrorState, Badge } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
+import { CheckoutSkeleton } from '../Skeletons';
 import { dateFull, plural, uid, money, cx } from '@/lib/format';
 
 /** Hotel checkout: guest details → secure hold → payment (single page, two steps) */
@@ -60,7 +61,7 @@ export default function Checkout() {
   };
 
   if (error) return <ErrorState error={error} />;
-  if (!quote) return <PageLoader label="Fetching the latest price…" />;
+  if (!quote) return <CheckoutSkeleton />;
   const total = quote.pricing?.totalAmount;
   const step = booking ? 2 : 1;
 

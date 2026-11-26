@@ -6,6 +6,7 @@ import { Tabs, Input, Select, Button, Badge } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
+import { ItinerarySkeleton } from '../Skeletons';
 import { cx } from '@/lib/format';
 
 const INTERESTS = ['Heritage', 'Nature', 'Food', 'Adventure', 'Beaches', 'Shopping', 'Nightlife', 'Wellness', 'Spiritual', 'Photography'];
@@ -60,7 +61,7 @@ function TripPlanner() {
         <Button type="submit" block loading={loading} icon={Sparkles}>Generate itinerary</Button>
       </form>
       <div>
-        {loading && <div className="card grid h-64 place-items-center text-muted"><span className="flex items-center gap-2"><Loader2 className="spin" size={18} />Crafting your plan…</span></div>}
+        {loading && <div role="status"><p className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted"><Loader2 className="spin" size={16} />Crafting your plan…</p><ItinerarySkeleton /></div>}
         {!loading && !plan && <div className="card grid h-64 place-items-center p-6 text-center text-sm text-muted">Your personalised itinerary will appear here.</div>}
         {!loading && plan && (
           <div className="card card-pad animate-fade-up">
