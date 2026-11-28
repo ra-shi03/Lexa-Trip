@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { pushHandlers } from '../services/push.service.js';
 import { validateObjectIdParams } from '../middlewares/security.js';
 import { requireAdmin } from '../middlewares/auth.js';
 import { can, masterOnly, stripRevenueForSubadmin } from '../middlewares/permission.js';
@@ -30,13 +31,15 @@ r.get('/vendors', can('vendors'), people.vendors);
 r.get('/vendors/:id', can('vendors'), people.vendor);
 r.post('/vendors/:id/status', can('vendors'), people.setVendorStatus);
 r.put('/vendors/:id/permissions', can('vendors'), people.updateVendorPermissions);
+r.get('/vendors/:id/documents/:docId/file', can('vendors'), people.vendorDocumentFile);
 r.put('/vendors/:id/documents/:docId', can('vendors'), people.verifyVendorDocument);
 r.put('/vendors/:id/commission', can('commission'), people.setVendorCommission);
 
 // ── Properties (all vendors) ──
 r.get('/properties', can('properties'), pm.list);
 r.post('/properties', can('properties'), pm.create);
-r.post('/uploads/images', can('properties', 'content', 'appearance'), uploadLimiter, imageUpload.array('images', 20), pm.uploadImages);
+r.get('/properties/filters', can('properties'), pm.filterOptions); // before /properties/:id
+r.post('/uploads/images', can('properties', 'content', 'appearance', 'catalog'), uploadLimiter, imageUpload.array('images', 20), pm.uploadImages);
 r.get('/properties/:id', can('properties'), pm.get);
 r.put('/properties/:id', can('properties'), pm.update);
 r.delete('/properties/:id', can('properties'), pm.remove);
@@ -49,6 +52,11 @@ r.get('/properties/:id/pricing-rules', can('properties', 'inventory'), pm.pricin
 r.post('/properties/:id/pricing-rules', can('inventory'), pm.createPricingRule);
 r.put('/properties/:id/pricing-rules/:ruleId', can('inventory'), pm.updatePricingRule);
 r.delete('/properties/:id/pricing-rules/:ruleId', can('inventory'), pm.removePricingRule);
+// Property editor options + vendor requests (sub-admins with `catalog` can approve / reject)
+r.get('/options', can('properties', 'catalog'), pm.options);
+r.get('/requests', can('catalog'), pm.requests);
+r.patch('/requests/:id', can('catalog'), pm.decideRequest);
+
 // Vendor deals ("Deals of the day") — admin sees and can manage every vendor's
 r.get('/deals', can('properties', 'inventory'), pm.deals);
 r.post('/deals', can('inventory'), pm.createDeal);
@@ -110,6 +118,10 @@ r.delete('/subadmins/:id', masterOnly, people.deleteSubadmin);
 
 // ── System ──
 r.get('/audit-logs', masterOnly, sys.auditLogs);
+// Devices that receive push notifications
+const push = pushHandlers('admin', (req) => req.admin);
+r.post('/push-token', push.register);
+r.delete('/push-token', push.remove);
 r.get('/notifications', sys.notifications);
 r.post('/notifications/read', sys.markNotificationsRead);
 r.get('/ai/conversations', can('support'), sys.aiConversations);

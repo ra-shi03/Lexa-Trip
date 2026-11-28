@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router';
 import { Briefcase, User, User as UserIcon, Users, Heart, Bell, LifeBuoy, LogOut, Plus, Trash2, Pencil, BedDouble, Bus, Plane, Send, ChevronRight, Camera, Loader2, Smartphone, BadgeCheck, CheckCircle2, Cake, Mail, Lock } from 'lucide-react';
+import { PushToggle } from '../../../components/panel/PushToggle';
 import { compressForUpload } from '../../../lib/compressImage';
 import { Container } from '../../../components/layout/UserLayout';
 import { PropertyCard } from '../../../components/stay/StayComponents';
@@ -151,7 +152,7 @@ export function Profile() {
         <div>
           <label className="field-label" htmlFor="pf-dob">Date of birth</label>
           <div className="relative"><Cake size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" /><input id="pf-dob" type="date" max={isoDate(new Date())} className="input h-12 rounded-full pl-11" value={form.dob} onChange={(e) => set('dob', e.target.value)} aria-invalid={Boolean(errors.dob)} /></div>
-          {errors.dob ? <p className="field-error animate-fade-up">{errors.dob}</p> : age !== null && <p className="field-hint">🎂 You’re {age} years old</p>}
+          {errors.dob ? <p className="field-error animate-fade-up">{errors.dob}</p> : age !== null && <p className="field-hint flex items-center gap-1.5"><Cake size={13} aria-hidden />You’re {age} years old</p>}
         </div>
         <div>
           <label className="field-label" htmlFor="pf-email">Email</label>
@@ -276,6 +277,7 @@ export function Notifications() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between"><h1 className="text-xl font-extrabold">Notifications</h1><Button size="sm" variant="outline" onClick={async () => { await api.post('/me/notifications/read'); reload(); }}>Mark all read</Button></div>
+      <PushToggle role="user" onMessage={reload} />
       <div className="card divide-y divide-line">
         {loading && <Skeleton className="m-4 h-16" />}
         {!loading && !data?.length && <EmptyState icon={Bell} title="You’re all caught up" />}

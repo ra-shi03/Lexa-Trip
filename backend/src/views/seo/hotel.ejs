@@ -4,7 +4,7 @@
     <p class="eyebrow"><%= hotel.propertyType || 'Hotel' %> · <%= city.name %>, <%= state.name %></p>
     <h1><%= (hotel.content && hotel.content.h1) || hotel.name %></h1>
     <div class="head-meta">
-      <% if (hotel.starRating) { %><span class="stars"><%= '★'.repeat(hotel.starRating) %></span><% } %>
+      <% if (hotel.starRating) { %><span class="stars" aria-label="<%= hotel.starRating %> star"><%- include('../partials/stars', { count: hotel.starRating }) %></span><% } %>
       <% if (hotel.address && (hotel.address.area || hotel.address.line1)) { %><span class="muted"><%= [hotel.address.line1, hotel.address.area].filter(Boolean).join(', ') %></span><% } %>
       <% (hotel.categories || []).filter(function (c) { return c.status === 'published'; }).forEach(function (c) { %>
         <a class="chip chip-sm" href="<%= paths.category(state, city, c) %>"><%= c.name %></a>

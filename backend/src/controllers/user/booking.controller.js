@@ -4,6 +4,7 @@ import { createHotelBooking, createBusBooking, createFlightBooking, cancelBookin
 import { ok, created } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { pageMeta } from '../../utils/queryBuilder.js';
+import { withReviewState } from '../../services/review.service.js';
 
 const guest = z.object({
   name: z.string().trim().min(2, 'Guest name is required'),
@@ -82,7 +83,7 @@ export async function myBookings(req, res) {
     Booking.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(+limit).select('-commission -vendorPayoutAmount -payout').lean(),
     Booking.countDocuments(filter),
   ]);
-  ok(res, items, pageMeta(total, +page, +limit));
+  ok(res, await withReviewState(items, req.user._id), pageMeta(total, +page, +limit));
 }
 
 export async function bookingDetail(req, res) {
@@ -91,7 +92,7 @@ export async function bookingDetail(req, res) {
     .populate('property', 'name slug address contact checkInTime checkOutTime images cancellationPolicy geo')
     .lean();
   if (!b) throw ApiError.notFound('Booking not found');
-  ok(res, b);
+  ok(res, (await withReviewState([b], req.user._id))[0]);
 }
 
 /** Shows the refund the guest would get before they confirm cancellation */

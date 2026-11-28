@@ -23,7 +23,7 @@ export async function dashboard(req, res) {
     Property.countDocuments(),
     Booking.aggregate([{ $match: { status: live } }, { $group: { _id: '$type', count: { $sum: 1 } } }]),
     Booking.aggregate([{ $match: { status: live } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
-    Vendor.countDocuments({ status: 'pending' }),
+    Vendor.countDocuments({ status: 'pending', submittedAt: { $ne: null } }),
     Property.countDocuments({ status: 'pending' }),
     Review.countDocuments({ status: 'pending' }),
     SupportTicket.countDocuments({ status: { $in: ['open', 'in_progress'] } }),

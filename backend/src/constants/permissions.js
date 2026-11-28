@@ -11,7 +11,7 @@ export const PERMISSIONS = {
   users: 'Customers',
   vendors: 'Vendors & verification',
   properties: 'Properties & listing approval',
-  catalog: 'Categories, amenities & destinations',
+  catalog: 'Categories, amenities, destinations & vendor requests',
   inventory: 'Inventory & channel manager',
   bookings: 'Bookings (hotel / bus / flight)',
   coupons: 'Coupons & offers',

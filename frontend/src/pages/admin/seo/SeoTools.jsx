@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Upload, Copy, Trash2, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Send, ExternalLink, Plus, Pencil, Search, Save } from 'lucide-react';
+import { Upload, Copy, Trash2, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Send, ExternalLink, Plus, Pencil, Search, Save, Star } from 'lucide-react';
 import { PageHeader, Button, DataTable, Input, Select, Toggle, Alert, Badge, StatCard, Modal, PageLoader, Img, Tabs, Textarea, ConfirmDialog, StatusBadge } from '../../../components/ui';
 import { Repeater } from '../../../components/editor/Repeater';
 import { SingleImage } from '../../../components/panel/ImageUploader';
@@ -208,13 +208,13 @@ export function DestinationsPage() {
   };
   return (
     <div>
-      <PageHeader title="Destinations" subtitle="India → States → Cities. Used by stay search, vendor listings and the SEO CMS." actions={<><Button variant="outline" icon={Plus} onClick={() => setEdit({ kind: 'state', name: '', code: '', isActive: true })}>Add state</Button><Button icon={Plus} onClick={() => setEdit({ kind: 'city', name: '', state: stateId, aliases: [], isPopular: false, isActive: true })}>Add city</Button></>} />
+      <PageHeader title="Destinations" subtitle="India → States → Cities. Used by stay search, vendor listings and the SEO CMS." actions={<><Button variant="ghost" icon={Star} to="/admin/catalog/popular">Popular destinations</Button><Button variant="outline" icon={Plus} onClick={() => setEdit({ kind: 'state', name: '', code: '', isActive: true })}>Add state</Button><Button icon={Plus} onClick={() => setEdit({ kind: 'city', name: '', state: stateId, aliases: [], isPopular: false, isActive: true })}>Add city</Button></>} />
       <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
         <div className="card h-fit divide-y divide-line">
           <button onClick={() => setStateId('')} className={cx('w-full px-4 py-2.5 text-left text-sm font-semibold', !stateId && 'bg-primary-soft text-primary')}>All states</button>
           {states?.map((s) => <div key={s._id} className={cx('flex items-center gap-2 px-4 py-2.5', stateId === s._id && 'bg-primary-soft')}><button className="flex-1 text-left text-sm font-semibold" onClick={() => setStateId(s._id)}>{s.name}</button><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setEdit({ kind: 'state', ...s })} /><Button size="xs" variant="ghost" icon={Trash2} className="text-danger" onClick={() => setDel({ kind: 'state', ...s })} /></div>)}
         </div>
-        <DataTable rows={cities} columns={[{ key: 'name', label: 'City', render: (c) => <div className="flex items-center gap-3"><Img src={c.image} className="h-10 w-14 rounded-md" /><div><p className="font-semibold">{c.name}</p><p className="text-xs text-muted">{c.aliases?.join(', ')}</p></div></div> }, { key: 's', label: 'State', render: (c) => c.state?.name }, { key: 'isPopular', label: 'Popular', render: (c) => (c.isPopular ? <Badge tone="primary">Home</Badge> : '—') }, { key: 'isActive', label: 'Status', render: (c) => <StatusBadge status={c.isActive ? 'active' : 'closed'} /> }, { key: 'a', label: '', align: 'right', render: (c) => <div className="flex justify-end gap-1"><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setEdit({ kind: 'city', ...c })} /><Button size="xs" variant="ghost" icon={Trash2} className="text-danger" onClick={() => setDel({ kind: 'city', ...c })} /></div> }]} />
+        <DataTable rows={cities} columns={[{ key: 'name', label: 'City', render: (c) => <div className="flex items-center gap-3"><Img src={c.image} className="h-10 w-14 rounded-md" /><div><p className="font-semibold">{c.name}</p><p className="text-xs text-muted">{c.aliases?.join(', ')}</p></div></div> }, { key: 's', label: 'State', render: (c) => c.state?.name }, { key: 'isActive', label: 'Status', render: (c) => <StatusBadge status={c.isActive ? 'active' : 'closed'} /> }, { key: 'a', label: '', align: 'right', render: (c) => <div className="flex justify-end gap-1"><Button size="xs" variant="ghost" icon={Pencil} onClick={() => setEdit({ kind: 'city', ...c })} /><Button size="xs" variant="ghost" icon={Trash2} className="text-danger" onClick={() => setDel({ kind: 'city', ...c })} /></div> }]} />
       </div>
       <Modal open={Boolean(edit)} onClose={() => setEdit(null)} title={`${edit?._id ? 'Edit' : 'Add'} ${edit?.kind}`} size="sm" footer={<Button onClick={save}>Save</Button>}>
         {edit && (
@@ -224,7 +224,6 @@ export function DestinationsPage() {
             {edit.kind === 'state' ? <Input label="Code" value={edit.code || ''} onChange={(e) => setEdit({ ...edit, code: e.target.value.toUpperCase() })} /> : <>
               <Select label="State" placeholder="Select state" value={edit.state?._id || edit.state || ''} onChange={(e) => setEdit({ ...edit, state: e.target.value })} options={(states || []).map((s) => ({ value: s._id, label: s.name }))} />
               <Input label="Aliases (comma separated)" value={(edit.aliases || []).join(', ')} onChange={(e) => setEdit({ ...edit, aliases: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} />
-              <Toggle label="Popular (show on home)" checked={edit.isPopular} onChange={(v) => setEdit({ ...edit, isPopular: v })} />
             </>}
             <Toggle label="Active" checked={edit.isActive} onChange={(v) => setEdit({ ...edit, isActive: v })} />
           </div>

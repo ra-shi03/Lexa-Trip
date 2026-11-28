@@ -85,17 +85,17 @@ export function Stars({ value = 0, size = 13 }) {
   );
 }
 
-/** Kayak-style rating pill: 8.6 Excellent */
+/** Guest rating from reviews, out of 5: [star] 4.7 Excellent (23) */
 export function RatingPill({ rating, count }) {
   if (!rating?.count && !count) return null;
-  const avg = rating?.avg ?? rating;
-  const score = Math.round(avg * 2 * 10) / 10; // 5-point → 10-point display
-  const word = score >= 9 ? 'Exceptional' : score >= 8.5 ? 'Excellent' : score >= 8 ? 'Very good' : score >= 7 ? 'Good' : 'Okay';
+  const avg = Number(rating?.avg ?? rating);
+  const word = avg >= 4.5 ? 'Exceptional' : avg >= 4.2 ? 'Excellent' : avg >= 4 ? 'Very good' : avg >= 3.5 ? 'Good' : 'Okay';
+  const n = rating?.count ?? count;
   return (
     <span className="inline-flex items-center gap-2 text-sm">
-      <span className="rounded-md bg-secondary px-1.5 py-0.5 text-xs font-bold text-white">{score.toFixed(1)}</span>
+      <span className="inline-flex items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-bold text-white"><Star size={11} fill="currentColor" strokeWidth={0} />{avg.toFixed(1)}</span>
       <span className="font-semibold text-ink">{word}</span>
-      <span className="text-muted">({rating?.count ?? count})</span>
+      <span className="text-muted">({n})</span>
     </span>
   );
 }

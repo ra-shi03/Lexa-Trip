@@ -4,11 +4,16 @@ import { LayoutDashboard, Building2, CalendarDays, CalendarCheck, Wallet, BarCha
 import { PanelLayout } from '../../components/layout/PanelLayout';
 import { Logo } from '../../components/layout/Logo';
 import { PropertyEditor } from '../../components/panel/PropertyEditor';
+import { DocumentCard, DOCUMENT_LABELS } from '../../components/panel/DocumentCard';
+import { BUSINESS_TYPES } from '../../lib/businessTypes';
+import { FormatInput, AddressFields } from '../../components/panel/VendorFields';
+import { PushToggle } from '../../components/panel/PushToggle';
+import { OnboardingCard, STAGE_LABEL, useApprovalWatch } from '../../components/panel/VendorOnboarding';
 import { InventoryPage } from '../../components/panel/InventoryGrid';
 import { DealsPage } from '../../components/panel/DealsPage';
 import { BookingsPanel } from '../../components/panel/BookingsPanel';
 import { ReportsView } from '../../components/panel/ReportsView';
-import { Button, Input, Select, PageHeader, StatCard, DataTable, StatusBadge, Alert, PageLoader, Img, Tabs, EmptyState } from '../../components/ui';
+import { Button, Input, Select, PageHeader, StatCard, DataTable, StatusBadge, Badge, Alert, PageLoader, Img, Tabs, EmptyState } from '../../components/ui';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -58,6 +63,7 @@ export function VendorAuth({ mode = 'login' }) {
 export function VendorShell() {
   const { vendor, ready, logout } = useAuth();
   const navigate = useNavigate();
+  useApprovalWatch();
   if (!ready.vendor) return <PageLoader />;
   if (!vendor) return <Navigate to="/vendor/login" replace />;
   const nav = [
@@ -66,7 +72,10 @@ export function VendorShell() {
     { section: 'Business', items: [{ to: '/vendor/bookings', label: 'Bookings', icon: CalendarCheck }, { to: '/vendor/earnings', label: 'Earnings & payouts', icon: Wallet }, { to: '/vendor/reports', label: 'Reports', icon: BarChart3 }] },
     { section: 'Account', items: [{ to: '/vendor/profile', label: 'Business profile', icon: User }, { to: '/vendor/notifications', label: 'Notifications', icon: Bell }] },
   ];
-  return <PanelLayout nav={nav} account={vendor} roleLabel="Partner" homeTo="/vendor" notificationsTo="/vendor/notifications" onLogout={() => { logout('vendor'); navigate('/vendor/login'); }} />;
+  // everything except the account section stays locked until the admin approves
+  const locked = vendor.status !== 'approved';
+  const menu = locked ? nav.map((g) => (g.section === 'Account' ? g : { ...g, items: g.items.map((i) => ({ ...i, locked: true })) })) : nav;
+  return <PanelLayout nav={menu} account={vendor} roleLabel="Partner" homeTo="/vendor" notificationsTo="/vendor/notifications" onLogout={() => { logout('vendor'); navigate('/vendor/login'); }} />;
 }
 
 // ───────────── Dashboard ─────────────
@@ -76,7 +85,6 @@ export function VendorDashboard() {
   return (
     <div>
       <PageHeader title="Dashboard" subtitle="Today at a glance" actions={<Button icon={Plus} to="/vendor/properties/new">Add property</Button>} />
-      {data.accountStatus !== 'approved' && <Alert tone="warning" className="mb-6" title={`Account ${data.accountStatus}`}>Complete your business profile, bank details and upload documents. Admin will verify and approve your account before properties go live.</Alert>}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Arrivals today" value={data.today.arrivals} icon={LogIn} />
         <StatCard label="Departures today" value={data.today.departures} icon={LogOutIcon} tone="navy" />
@@ -97,6 +105,8 @@ export function VendorDashboard() {
 }
 
 // ───────────── Properties ─────────────
+const PROPERTY_HINT = { draft: 'Open it and submit for approval', pending: 'Admin is reviewing', rejected: 'Fix and submit again' };
+
 export function VendorProperties() {
   const { data, loading } = useApi(() => api.get('/vendor/properties'), []);
   const navigate = useNavigate();
@@ -112,7 +122,7 @@ export function VendorProperties() {
           { key: 'name', label: 'Property', render: (p) => <div className="flex items-center gap-3"><Img src={p.images?.[0]?.url} className="h-10 w-14 rounded-md" /><div><p className="font-semibold">{p.name}</p><p className="text-xs text-muted">{p.category?.name} · {p.address?.city?.name}</p></div></div> },
           { key: 'minPrice', label: 'From', render: (p) => money(p.minPrice) },
           { key: 'rating', label: 'Rating', render: (p) => (p.rating?.count ? `${p.rating.avg} (${p.rating.count})` : '—') },
-          { key: 'status', label: 'Status', render: (p) => <StatusBadge status={p.status} /> },
+          { key: 'status', label: 'Status', render: (p) => <div><StatusBadge status={p.status} />{PROPERTY_HINT[p.status] && <p className="mt-1 text-xs text-muted">{PROPERTY_HINT[p.status]}</p>}</div> },
           { key: 'u', label: 'Updated', render: (p) => timeAgo(p.updatedAt) },
         ]}
       />
@@ -163,45 +173,62 @@ export function VendorProfile() {
   const [bank, setBank] = useState(vendor.bank || {});
   const [docType, setDocType] = useState('gst_certificate');
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
+  // verified details are read-only; only a document the admin rejected can be sent again (the server enforces both)
+  const locked = ['approved', 'suspended'].includes(vendor.status);
+  const rejectedTypes = (vendor.documents || []).filter((d) => d.status === 'rejected').map((d) => d.type);
+  const uploadTypes = Object.keys(DOCUMENT_LABELS).filter((t) => !locked || rejectedTypes.includes(t));
+  const selectedType = uploadTypes.includes(docType) ? docType : uploadTypes[0];
   const saveBiz = async () => { try { await api.put('/vendor/profile', biz); toast.success('Saved'); refresh('vendor'); } catch (e) { toast.error(e); } };
   const saveBank = async () => { try { await api.put('/vendor/bank', bank); toast.success('Bank details saved'); refresh('vendor'); } catch (e) { toast.error(e); } };
-  const uploadDoc = async (file) => { const fd = new FormData(); fd.append('file', file); fd.append('type', docType); try { await api.upload('/vendor/documents', fd); toast.success('Uploaded for verification'); refresh('vendor'); } catch (e) { toast.error(e); } };
+  const uploadDoc = async (file) => { const fd = new FormData(); fd.append('file', file); fd.append('type', selectedType); try { await api.upload('/vendor/documents', fd); toast.success('Uploaded for verification'); refresh('vendor'); } catch (e) { toast.error(e); } };
   const changePw = async () => { try { await api.post('/auth/vendor/change-password', pw); toast.success('Password updated'); setPw({ currentPassword: '', newPassword: '' }); } catch (e) { toast.error(e); } };
   return (
     <div>
-      <PageHeader title="Business profile" subtitle={<>Account status: <StatusBadge status={vendor.status} /></>} />
+      <PageHeader title="Business profile" subtitle={<>Account status: <Badge tone={vendor.status === 'approved' ? 'success' : vendor.status === 'pending' ? 'warning' : 'danger'}>{STAGE_LABEL[vendor.onboarding.stage]}</Badge></>} />
+      {vendor.status !== 'approved' && <div className="mb-6 max-w-3xl"><OnboardingCard onSection={setTab} /></div>}
+      {locked && tab !== 'security' && (
+        <Alert tone="success" className="mb-4 max-w-3xl" title="Verified and locked">
+          Your account is approved, so business details, bank details and documents can’t be edited. Contact LexaTrip support if something has to change.
+        </Alert>
+      )}
       <Tabs className="mb-6" value={tab} onChange={setTab} tabs={[{ value: 'business', label: 'Business details' }, { value: 'bank', label: 'Bank & payouts' }, { value: 'docs', label: `Documents (${vendor.documents?.length || 0})` }, { value: 'security', label: 'Security' }]} />
       {tab === 'business' && (
-        <div className="card card-pad grid max-w-3xl gap-4 sm:grid-cols-2">
-          <Input label="Contact name" value={biz.name} onChange={(e) => setBiz({ ...biz, name: e.target.value })} />
-          <Input label="Mobile" value={biz.phone} onChange={(e) => setBiz({ ...biz, phone: e.target.value })} />
-          <Input label="Business name" value={biz.businessName} onChange={(e) => setBiz({ ...biz, businessName: e.target.value })} />
-          <Select label="Business type" placeholder="Select" value={biz.businessType} onChange={(e) => setBiz({ ...biz, businessType: e.target.value })} options={['individual', 'proprietorship', 'partnership', 'company'].map((v) => ({ value: v, label: titleCase(v) }))} />
-          <Input label="GSTIN" value={biz.gstin} onChange={(e) => setBiz({ ...biz, gstin: e.target.value.toUpperCase() })} />
-          <Input label="PAN" value={biz.pan} onChange={(e) => setBiz({ ...biz, pan: e.target.value.toUpperCase() })} />
-          <Input label="Address" className="sm:col-span-2" value={biz.address.line1 || ''} onChange={(e) => setBiz({ ...biz, address: { ...biz.address, line1: e.target.value } })} />
-          <Input label="City" value={biz.address.city || ''} onChange={(e) => setBiz({ ...biz, address: { ...biz.address, city: e.target.value } })} />
-          <Input label="Pincode" value={biz.address.pincode || ''} onChange={(e) => setBiz({ ...biz, address: { ...biz.address, pincode: e.target.value } })} />
-          <div className="sm:col-span-2"><Button onClick={saveBiz}>Save</Button></div>
-        </div>
+        <fieldset disabled={locked} className="card card-pad grid max-w-3xl gap-4 sm:grid-cols-2">
+          <Input label="Contact name *" value={biz.name} onChange={(e) => setBiz({ ...biz, name: e.target.value })} />
+          <FormatInput type="phone" label="Mobile *" value={biz.phone} onChange={(phone) => setBiz({ ...biz, phone })} />
+          <Input label="Business name *" value={biz.businessName} onChange={(e) => setBiz({ ...biz, businessName: e.target.value })} />
+          <Select label="Business type *" placeholder="Who owns the business?" value={biz.businessType} onChange={(e) => setBiz({ ...biz, businessType: e.target.value })} options={Object.entries(BUSINESS_TYPES).map(([value, label]) => ({ value, label }))} />
+          <FormatInput type="gstin" label="GSTIN (optional)" value={biz.gstin} onChange={(gstin) => setBiz({ ...biz, gstin })} />
+          <FormatInput type="pan" label="PAN *" value={biz.pan} onChange={(pan) => setBiz({ ...biz, pan })} />
+          <AddressFields value={biz.address} onChange={(address) => setBiz((b) => ({ ...b, address }))} />
+          {!locked && <div className="sm:col-span-2"><Button onClick={saveBiz}>Save</Button></div>}
+        </fieldset>
       )}
       {tab === 'bank' && (
-        <div className="card card-pad grid max-w-3xl gap-4 sm:grid-cols-2">
-          <Input label="Account holder" value={bank.accountHolder || ''} onChange={(e) => setBank({ ...bank, accountHolder: e.target.value })} />
-          <Input label="Account number" value={bank.accountNumber || ''} onChange={(e) => setBank({ ...bank, accountNumber: e.target.value })} />
-          <Input label="IFSC" value={bank.ifsc || ''} onChange={(e) => setBank({ ...bank, ifsc: e.target.value.toUpperCase() })} />
-          <Input label="Bank name" value={bank.bankName || ''} onChange={(e) => setBank({ ...bank, bankName: e.target.value })} />
-          <Input label="UPI ID (optional)" value={bank.upiId || ''} onChange={(e) => setBank({ ...bank, upiId: e.target.value })} />
-          <div className="sm:col-span-2"><Button onClick={saveBank}>Save bank details</Button></div>
-        </div>
+        <fieldset disabled={locked} className="card card-pad grid max-w-3xl gap-4 sm:grid-cols-2">
+          <Input label="Account holder *" value={bank.accountHolder || ''} onChange={(e) => setBank({ ...bank, accountHolder: e.target.value })} />
+          <FormatInput type="accountNumber" label="Account number *" value={bank.accountNumber} onChange={(accountNumber) => setBank({ ...bank, accountNumber })} />
+          <FormatInput type="ifsc" label="IFSC *" value={bank.ifsc} onChange={(ifsc) => setBank({ ...bank, ifsc })} />
+          <Input label="Bank name *" value={bank.bankName || ''} onChange={(e) => setBank({ ...bank, bankName: e.target.value })} />
+          <FormatInput type="upiId" label="UPI ID (optional)" value={bank.upiId} onChange={(upiId) => setBank({ ...bank, upiId })} />
+          {!locked && <div className="sm:col-span-2"><Button onClick={saveBank}>Save bank details</Button></div>}
+        </fieldset>
       )}
       {tab === 'docs' && (
         <div className="max-w-3xl space-y-4">
-          <div className="card card-pad flex flex-wrap items-end gap-3">
-            <Select label="Document type" value={docType} onChange={(e) => setDocType(e.target.value)} options={[['gst_certificate', 'GST certificate'], ['pan', 'PAN card'], ['trade_licence', 'Trade licence'], ['property_proof', 'Property ownership / lease'], ['id_proof', 'Owner ID proof'], ['cancelled_cheque', 'Cancelled cheque']].map(([v, l]) => ({ value: v, label: l }))} />
-            <label className="btn btn-primary cursor-pointer"><Upload size={18} />Upload<input type="file" hidden accept="image/*,application/pdf" onChange={(e) => e.target.files[0] && uploadDoc(e.target.files[0])} /></label>
+          {uploadTypes.length > 0 && (
+            <>
+              <p className="text-sm text-muted">PAN card and owner ID proof are required. JPG, PNG, WebP or PDF up to 10 MB. Files are stored privately — only you and LexaTrip’s team can open them.</p>
+              <div className="card card-pad flex flex-wrap items-end gap-3">
+                <Select label="Document type" value={selectedType} onChange={(e) => setDocType(e.target.value)} options={uploadTypes.map((v) => ({ value: v, label: DOCUMENT_LABELS[v] }))} />
+                <label className="btn btn-primary cursor-pointer"><Upload size={18} />Upload<input type="file" hidden accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(e) => { if (e.target.files[0]) uploadDoc(e.target.files[0]); e.target.value = ''; }} /></label>
+              </div>
+            </>
+          )}
+          {!vendor.documents?.length && <EmptyState icon={Upload} title="No documents uploaded" />}
+          <div className="grid gap-3 sm:grid-cols-3">
+            {vendor.documents?.map((d) => <DocumentCard key={d._id} doc={d} fileUrl={`/vendor/documents/${d._id}/file`} />)}
           </div>
-          <DataTable rows={vendor.documents} columns={[{ key: 'type', label: 'Document', render: (d) => titleCase(d.type) }, { key: 'url', label: 'File', render: (d) => <a href={d.url} target="_blank" rel="noreferrer" className="font-semibold text-primary">View</a> }, { key: 'status', label: 'Status', render: (d) => <StatusBadge status={d.status === 'verified' ? 'approved' : d.status} /> }, { key: 'note', label: 'Note', render: (d) => d.note || '—' }]} />
         </div>
       )}
       {tab === 'security' && (
@@ -220,6 +247,7 @@ export function PanelNotifications({ endpoint }) {
   return (
     <div>
       <PageHeader title="Notifications" actions={<Button variant="outline" size="sm" onClick={async () => { await api.post(`${endpoint}/read`); reload(); }}>Mark all read</Button>} />
+      <PushToggle role={endpoint.startsWith('/admin') ? 'admin' : 'vendor'} onMessage={reload} />
       <div className="card divide-y divide-line">
         {!data?.length && <EmptyState icon={Bell} title="No notifications" />}
         {data?.map((n) => <div key={n._id} className="flex items-start gap-3 p-4">{!n.read && <span className="mt-2 h-2 w-2 rounded-full bg-primary" />}<div className="flex-1"><p className="text-sm font-bold">{n.title}</p><p className="text-sm text-muted">{n.body}</p></div><span className="text-xs text-muted">{dateTime(n.createdAt)}</span></div>)}

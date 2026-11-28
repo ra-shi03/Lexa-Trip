@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router';
 import {
   LayoutDashboard, Users, Store, Building2, CalendarDays, CalendarCheck, Receipt, RotateCcw, Wallet, Percent, BarChart3, Layers, MapPin, Tag, Image, FileText,
   HelpCircle, Star, LifeBuoy, Palette, ToggleLeft, Plug, UserCog, ScrollText, Globe, FolderOpen, FileSpreadsheet, Network, ArrowLeftRight, Images, Bot, Settings, Smartphone, LogIn, Globe2,
+  Inbox, TrendingUp, HardDriveUpload, ThumbsUp,
 } from 'lucide-react';
 import { PanelLayout } from '../../components/layout/PanelLayout';
 import { PanelLogin } from '../../components/panel/PanelLogin';
@@ -59,8 +60,11 @@ export function AdminShell() {
     ] },
     { section: 'Catalogue & content', items: [
       { to: '/admin/catalog/destinations', label: 'Destinations', icon: MapPin, perm: 'catalog' },
+      { to: '/admin/catalog/popular', label: 'Popular destinations', icon: TrendingUp, perm: 'catalog' },
+      { to: '/admin/catalog/handpicked', label: 'Handpicked stays', icon: ThumbsUp, perm: 'properties' },
       { to: '/admin/catalog/categories', label: 'Categories', icon: Layers, perm: 'catalog' },
       { to: '/admin/catalog/amenities', label: 'Amenities', icon: Tag, perm: 'catalog' },
+      { to: '/admin/catalog/requests', label: 'Vendor requests', icon: Inbox, perm: 'catalog' },
       { to: '/admin/coupons', label: 'Coupons', icon: Percent, perm: 'coupons' },
       { to: '/admin/banners', label: 'Banners', icon: Image, perm: 'content' },
       { to: '/admin/pages', label: 'Static pages', icon: FileText, perm: 'content' },
@@ -77,6 +81,9 @@ export function AdminShell() {
       { to: '/admin/settings/region', label: 'Region & time', icon: Globe2, master: true },
       { to: '/admin/subadmins', label: 'Sub-admins', icon: UserCog, master: true },
       { to: '/admin/audit', label: 'Audit log', icon: ScrollText, master: true },
+    ] },
+    { section: 'Developer', items: [
+      { to: '/admin/settings/image-storage', label: 'Image setting', icon: HardDriveUpload, master: true },
     ] },
   ];
   const nav = groups.map((g) => ({ ...g, items: g.items.filter((i) => (i.master ? isMaster : can(i.perm))) })).filter((g) => g.items.length);

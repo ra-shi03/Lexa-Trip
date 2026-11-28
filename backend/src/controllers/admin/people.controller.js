@@ -1,3 +1,5 @@
+import { sendPrivateFile } from '../../services/privateStorage.service.js';
+import { onboarding, publicDocuments } from '../../services/vendorOnboarding.service.js';
 import User from '../../models/User.js';
 import Vendor from '../../models/Vendor.js';
 import Admin from '../../models/Admin.js';
@@ -37,7 +39,7 @@ export async function vendors(req, res) {
   const [items, total] = await Promise.all([Vendor.find(filter).sort(sort).skip(skip).limit(limit).lean(), Vendor.countDocuments(filter)]);
   const counts = await Property.aggregate([{ $match: { vendor: { $in: items.map((v) => v._id) } } }, { $group: { _id: '$vendor', count: { $sum: 1 } } }]);
   const map = Object.fromEntries(counts.map((c) => [String(c._id), c.count]));
-  ok(res, items.map((v) => ({ ...v, propertyCount: map[String(v._id)] || 0 })), pageMeta(total, page, limit));
+  ok(res, items.map((v) => ({ ...v, documents: publicDocuments(v.documents), propertyCount: map[String(v._id)] || 0, onboarding: onboarding(v) })), pageMeta(total, page, limit));
 }
 export async function vendor(req, res) {
   const v = await Vendor.findById(req.params.id).lean();
@@ -46,15 +48,22 @@ export async function vendor(req, res) {
     Property.find({ vendor: v._id }).select('name status address.city minPrice').populate('address.city', 'name').lean(),
     Booking.find({ vendor: v._id }).sort({ createdAt: -1 }).limit(30).select('bookingCode status snapshot checkIn pricing.totalAmount').lean(),
   ]);
-  ok(res, { ...v, properties, bookings });
+  ok(res, { ...v, documents: publicDocuments(v.documents), properties, bookings, onboarding: onboarding(v) });
 }
 /** approve | reject | suspend | activate */
 export async function setVendorStatus(req, res) {
   const map = { approve: 'approved', reject: 'rejected', suspend: 'suspended', activate: 'approved' };
   const status = map[req.body.action];
   if (!status) throw ApiError.badRequest('Unknown action');
-  const v = await Vendor.findByIdAndUpdate(req.params.id, { status, statusNote: req.body.note }, { new: true });
-  if (!v) throw ApiError.notFound();
+  const current = await Vendor.findById(req.params.id).lean();
+  if (!current) throw ApiError.notFound();
+  if (req.body.action === 'approve') {
+    const { stage, missing } = onboarding(current);
+    if (missing.length) throw ApiError.conflict(`Profile is incomplete: ${missing.map((m) => m.label).join(', ')}`);
+    if (stage === 'incomplete') throw ApiError.conflict('The vendor hasn’t submitted their profile for approval yet');
+  }
+  // rejected → they have to fix and submit again
+  const v = await Vendor.findByIdAndUpdate(req.params.id, { status, statusNote: req.body.note, ...(status === 'rejected' && { $unset: { submittedAt: 1 } }) }, { new: true });
   if (status === 'suspended') { await Property.updateMany({ vendor: v._id }, { isVisible: false }); await revokeAllSessions('vendor', v._id); }
   if (req.body.action === 'activate') await Property.updateMany({ vendor: v._id, status: 'approved' }, { isVisible: true });
   await notify({ recipientType: 'vendor', recipient: v._id, title: `Account ${status}`, body: req.body.note || '', type: 'vendor_status' });
@@ -67,13 +76,24 @@ export async function updateVendorPermissions(req, res) {
   audit(req, 'vendor.permissions', 'Vendor', v._id, req.body.permissions);
   ok(res, v, undefined, 'Permissions updated');
 }
+export async function vendorDocumentFile(req, res) {
+  const v = await Vendor.findById(req.params.id).select('documents').lean();
+  const d = v?.documents?.find((x) => String(x._id) === req.params.docId);
+  if (!d) throw ApiError.notFound();
+  audit(req, 'vendor.document.view', 'Vendor', v._id, { type: d.type });
+  await sendPrivateFile(res, d);
+}
 export async function verifyVendorDocument(req, res) {
   const v = await Vendor.findById(req.params.id);
   const d = v?.documents.id(req.params.docId);
   if (!d) throw ApiError.notFound();
   d.status = req.body.status;
   d.note = req.body.note;
+  // a rejected document sends a waiting profile back to the vendor
+  const sentBack = req.body.status === 'rejected' && v.status === 'pending' && v.submittedAt;
+  if (sentBack) v.submittedAt = undefined;
   await v.save();
+  if (req.body.status === 'rejected') await notify({ recipientType: 'vendor', recipient: v._id, title: 'Document rejected', body: `Please upload your ${d.type.replace(/_/g, ' ')} again${sentBack ? ' and resubmit your profile' : ''}`, type: 'vendor_status' });
   ok(res, v.documents);
 }
 /** Commission override per vendor — revenue permission */
@@ -100,7 +120,10 @@ export async function propertyAction(req, res) {
     hide: { isVisible: false },
   }[action];
   if (!updates) throw ApiError.badRequest('Unknown action');
+  if (action === 'reject' && p.status !== 'pending') throw ApiError.conflict('Only a property waiting for approval can be rejected');
   if (action === 'approve') {
+    // a draft hasn't been submitted by the vendor yet, so there is nothing to approve
+    if (p.status === 'draft') throw ApiError.conflict('The vendor hasn’t submitted this property for approval yet');
     const v = await Vendor.findById(p.vendor).lean();
     if (v?.status !== 'approved') throw ApiError.conflict('Approve the vendor account first');
   }

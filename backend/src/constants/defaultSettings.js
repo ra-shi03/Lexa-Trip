@@ -68,6 +68,12 @@ export const DEFAULT_SETTINGS = {
     { key: 'featured_properties', label: 'Featured stays', enabled: true },
     { key: 'why_us', label: 'Why book with us', enabled: true },
   ],
+  /** "Popular destinations" on the app + website home — Admin → Catalogue → Popular destinations (permission: catalog).
+   *  items: [{ city, image? }] in display order; null = not curated yet → cities flagged isPopular */
+  popularDestinations: { enabled: true, title: 'Popular destinations', subtitle: 'Trending with LexaTrip travellers', items: null },
+  /** "Handpicked stays" on the app + website home — Admin → Catalogue → Handpicked stays (permission: properties).
+   *  Which stays = Property.isFeatured; order = the ids here. */
+  featuredStays: { enabled: true, title: 'Handpicked stays', subtitle: 'Top-rated properties our travellers love', order: [] },
   /** Home page content — images & text editable in Admin → Home page */
   home: {
     hero: {
@@ -128,6 +134,9 @@ export const DEFAULT_SETTINGS = {
   /** Region & time — Admin → Settings → Region & time (master admin). Decides "today" for bookings, deals,
    *  reports and jobs, and the clock every app/panel displays. IANA name: "Asia/Kolkata", "UTC", "Asia/Dubai"… */
   regional: { timezone: 'Asia/Kolkata' },
+  /** Where new uploads go, per server mode (NODE_ENV) — Admin → Developer → Image setting, master admin only.
+   *  'local' = server disk · 'cloudinary' = Cloudinary (falls back to disk until its .env keys are set). */
+  storage: { development: 'cloudinary', production: 'local' },
   booking: {
     holdMinutes: 15, // inventory hold while payment is in progress
     maxRoomsPerBooking: 8,

@@ -39,6 +39,7 @@ export const otpIpLimiter = make({ windowMs: 60 * 60_000, limit: rl.otpIpMax, me
 
 export const uploadLimiter = make({ windowMs: 10 * 60_000, limit: rl.uploadMax, message: json('Upload limit reached. Try again shortly.') });
 /** Token refresh: generous (every tab renews every ~15 min) but stops refresh-token guessing */
+export const placesLimiter = make({ windowMs: win, limit: rl.placesMax, message: json('Too many location lookups — type the address instead.') });
 export const refreshLimiter = make({ windowMs: 15 * 60_000, limit: rl.refreshMax, message: json('Too many session refreshes. Please sign in again.') });
 /** Live-update stream: caps reconnect storms per IP */
 export const liveLimiter = make({ windowMs: win, limit: rl.liveMax, message: json('Too many live connections.') });

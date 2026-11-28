@@ -3,9 +3,12 @@ import Property from '../../models/Property.js';
 import { Review, SupportTicket, AuditLog, Notification, AiConversation } from '../../models/Misc.js';
 import { getSettings, updateSettingsSection, SETTINGS_SECTIONS } from '../../services/settings.service.js';
 import { isAiConfigured } from '../../services/ai/gemini.js';
+import { storageStatus, cloudinaryConfigured, SERVER_MODE, STORAGE_PROVIDERS } from '../../services/storage.service.js';
+import { saveFeaturedStays } from '../../services/featured.service.js';
+import { pushConfigured } from '../../services/push.service.js';
+import { cleanPopularSettings } from '../../services/destination.service.js';
 import { gscConfigured } from '../../services/seo/gsc.service.js';
 import { audit } from '../../services/audit.service.js';
-import { publicUrlFor } from '../../middlewares/upload.js';
 import { env } from '../../config/env.js';
 import { ok } from '../../utils/response.js';
 import { isValidTimezone } from '../../utils/clock.js';
@@ -15,7 +18,9 @@ import { buildListQuery, pageMeta } from '../../utils/queryBuilder.js';
 /** Which permission is needed to edit each settings section */
 export const SECTION_PERMISSION = {
   brand: 'appearance', theme: 'appearance', features: 'appearance', homeSections: 'appearance', home: 'appearance', app: 'appearance', auth: 'appearance', social: 'content',
-  booking: 'integrations', regional: 'integrations', integrations: 'integrations', seo: 'seo', tax: 'finance', commission: 'commission',
+  popularDestinations: 'catalog',
+  featuredStays: 'properties',
+  booking: 'integrations', regional: 'integrations', storage: 'integrations', integrations: 'integrations', seo: 'seo', tax: 'finance', commission: 'commission',
 };
 
 export async function getAllSettings(req, res) {
@@ -24,6 +29,9 @@ export async function getAllSettings(req, res) {
   if (req.admin.role !== 'master') {
     delete out.commission;
     delete out.tax;
+    delete out.storage;
+  } else {
+    out.storageStatus = await storageStatus();
   }
   // Integration *status* (keys live in .env and are never returned)
   out.integrationStatus = {
@@ -35,6 +43,8 @@ export async function getAllSettings(req, res) {
     flight: { provider: env.flightProvider, sandbox: env.flightProvider === 'mock' },
     channelManager: { provider: env.channelManagerProvider, sandbox: env.channelManagerProvider === 'mock' },
     searchConsole: { configured: gscConfigured() },
+    push: { configured: pushConfigured() },
+    storage: { configured: cloudinaryConfigured() },
   };
   ok(res, out);
 }
@@ -51,14 +61,22 @@ export async function updateSettings(req, res) {
     if (!isValidTimezone(req.body?.timezone)) throw ApiError.badRequest('Choose a valid timezone, e.g. Asia/Kolkata or UTC');
     req.body = { timezone: req.body.timezone };
   }
+  // File storage → master admin only; the choice applies to the server mode handling this request
+  if (section === 'storage') {
+    if (req.admin.role !== 'master') throw ApiError.forbidden('Only the master admin can change file storage');
+    if (!STORAGE_PROVIDERS.includes(req.body?.provider)) throw ApiError.badRequest('Choose Local storage or Cloudinary');
+    req.body = { ...(await getSettings({ fresh: true })).storage, [SERVER_MODE]: req.body.provider };
+  }
+  if (section === 'featuredStays') req.body = await saveFeaturedStays(req.body);
+  if (section === 'popularDestinations') req.body = cleanPopularSettings(req.body);
   const s = await updateSettingsSection(section, req.body, req.admin._id);
   audit(req, `settings.${section}`, 'Setting', null);
-  ok(res, s, undefined, 'Settings saved');
+  ok(res, section === 'storage' ? { ...s, storageStatus: await storageStatus() } : s, undefined, 'Settings saved');
 }
 
 export async function uploadAsset(req, res) {
   if (!req.file) throw ApiError.badRequest('Choose a file');
-  ok(res, { url: publicUrlFor(req.file.path) });
+  ok(res, { url: req.file.url });
 }
 
 // ─── Reviews ───

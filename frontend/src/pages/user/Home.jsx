@@ -14,9 +14,9 @@ import { useToast } from '../../context/ToastContext';
 import { money } from '../../lib/format';
 
 export default function Home() {
-  const { homeSections, feature, brand, ai, home: homeCfg } = useSettings();
+  const { homeSections, feature, brand, ai, home: homeCfg, popularDestinations: popular, featuredStays: picks } = useSettings();
   const hero = homeCfg?.hero || {};
-  const { data, loading } = useApi(() => api.get('/public/home'), [], { live: 'content' });
+  const { data, loading } = useApi(() => api.get('/public/home'), [], { live: ['content', 'settings'] });
   const bannerSlides = (data?.heroBanners || []).filter((b) => b.image).map((b) => ({ url: b.image, title: b.title, subtitle: b.subtitle, link: b.link }));
   const heroSlides = bannerSlides.length ? bannerSlides : hero.slides || [];
   const hasSlides = heroSlides.some((sl) => sl.url);
@@ -121,19 +121,19 @@ export default function Home() {
         </div>
       </Container>
     ),
-    popular_destinations: (
+    popular_destinations: popular?.enabled !== false && (loading || data?.destinations?.length > 0) && (
       <Container className="pt-12">
-        <SectionHead title="Popular destinations" subtitle="Trending with LexaTrip travellers" />
+        <SectionHead title={popular?.title || 'Popular destinations'} subtitle={popular?.subtitle} />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {loading && Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="aspect-[4/5]" />)}
-          {data?.destinations?.slice(0, 8).map((c, n) => (
+          {data?.destinations.map((c, n) => (
             <Reveal key={c._id} delay={n * 70} scale>
               <Link to={`/search?city=${encodeURIComponent(c.name)}`} className="tilt-card group relative block aspect-[4/5] overflow-hidden rounded-brand-lg">
                 <Img src={c.image} alt={c.name} className="absolute inset-0 h-full w-full transition duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-secondary/90 via-secondary/10 to-transparent transition group-hover:from-secondary/95" />
                 <div className="absolute bottom-0 p-4 text-white transition duration-300 group-hover:-translate-y-1">
                   <p className="text-lg font-extrabold">{c.name}</p>
-                  <p className="text-xs text-white/80">{c.propertyCount ? `${c.propertyCount} stays` : c.state?.name}{c.priceFrom ? ` · from ${money(c.priceFrom)}` : ''}</p>
+                  <p className="text-xs text-white/80">{c.propertyCount ? `${c.propertyCount} ${c.propertyCount === 1 ? 'stay' : 'stays'}` : c.state?.name}{c.priceFrom ? ` · from ${money(c.priceFrom)}` : ''}</p>
                 </div>
               </Link>
             </Reveal>
@@ -141,11 +141,11 @@ export default function Home() {
         </div>
       </Container>
     ),
-    featured_properties: data?.featured?.length > 0 && (
+    featured_properties: picks?.enabled !== false && data?.featured?.length > 0 && (
       <Container className="pt-12">
-        <SectionHead title="Handpicked stays" subtitle="Top-rated properties our travellers love" link="/search?sort=rating" />
+        <SectionHead title={picks?.title || 'Handpicked stays'} subtitle={picks?.subtitle} link="/search?sort=rating" />
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {data.featured.slice(0, 8).map((p, n) => <Reveal key={p._id} delay={n * 70}><PropertyCard p={p} /></Reveal>)}
+          {data.featured.map((p, n) => <Reveal key={p._id} delay={n * 70}><PropertyCard p={p} /></Reveal>)}
         </div>
       </Container>
     ),

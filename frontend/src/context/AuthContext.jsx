@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, tokens, onUnauthorized, endSession, TOKEN_KEYS } from '../lib/api';
+import { syncPush } from '../lib/push';
 
 /**
  * Three independent sessions (guest user, vendor, admin) so one browser can be
@@ -17,6 +18,7 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await api.get(ME[role]);
       setState((s) => ({ ...s, [role]: data }));
+      syncPush(role);
     } catch {
       tokens.clear(role);
     } finally {

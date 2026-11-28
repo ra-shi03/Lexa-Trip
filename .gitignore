@@ -5,9 +5,24 @@ dist
 .DS_Store
 backend/uploads/*
 !backend/uploads/.gitkeep
+backend/private-uploads/
 *.log
 
 # Local-only project notes (not published)
 CLAUDE.md
 docs/
 .claude/
+
+# Credentials — never commit (only the .env.example files, with empty values, are published)
+.env
+.env.*
+!.env.example
+*serviceaccount*.json
+*service-account*.json
+*serviceAccount*.json
+*firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
+*.pem
+*.key
+*.p12

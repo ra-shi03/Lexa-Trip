@@ -9,7 +9,6 @@ import { channelManager } from '../../services/channelManager/index.js';
 import { cancelBooking } from '../../services/booking.service.js';
 import { notify } from '../../services/notification/notification.service.js';
 import { audit } from '../../services/audit.service.js';
-import { publicUrlFor } from '../../middlewares/upload.js';
 import { ok, created } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { buildListQuery, pageMeta } from '../../utils/queryBuilder.js';
@@ -18,6 +17,8 @@ import Deal from '../../models/Deal.js';
 import { Category } from '../../models/Catalog.js';
 import { prepareDeal, dealRows, dealStatus, DEAL_LIMITS } from '../../services/deal.service.js';
 import { publish } from '../../services/live.service.js';
+import { bookingFilters, propertyFilters, propertyFilterOptions } from '../../services/listFilters.service.js';
+import { editorOptions, keepApproved, createRequest, vendorRequests, adminRequests, decideRequest } from '../../services/catalogRequest.service.js';
 
 import { today, daysFromToday, dayStart, platformTimezone } from '../../utils/clock.js';
 /**
@@ -51,13 +52,16 @@ export function propertyManager(mode) {
   return {
     // ─── Properties ───
     async list(req, res) {
-      const { filter, skip, limit, page, sort } = buildListQuery(req.query, { searchFields: ['name', 'slug'], filterFields: ['status', 'category', 'vendor', 'isFeatured'], baseFilter: scope(req) });
-      if (req.query.city) filter['address.city'] = req.query.city;
+      const { skip, limit, page, sort } = buildListQuery(req.query);
+      const { filter, counts } = await propertyFilters(req.query, isVendor ? req.vendor._id : null);
       const [items, total] = await Promise.all([
         Property.find(filter).sort(sort).skip(skip).limit(limit).populate('category', 'name').populate('address.city', 'name').populate('vendor', 'businessName email').lean(),
         Property.countDocuments(filter),
       ]);
-      ok(res, items, pageMeta(total, page, limit));
+      ok(res, items, { ...pageMeta(total, page, limit), counts });
+    },
+    async filterOptions(_req, res) {
+      ok(res, await propertyFilterOptions());
     },
     async get(req, res) {
       const p = await Property.findOne({ _id: req.params.id, ...scope(req) }).populate('vendor', 'businessName email phone').lean();
@@ -72,11 +76,15 @@ export function propertyManager(mode) {
       }
       const body = { ...req.body };
       await assertPropertyType(body.category);
+      if (isVendor) await keepApproved(body);
+      delete body.starRating; // ratings come only from guest reviews
+      delete body.rating;
       body.vendor = isVendor ? req.vendor._id : body.vendor;
       if (!body.vendor) throw ApiError.badRequest('Vendor is required');
       body.slug = slugify(body.slug || `${body.name}-${randomCode('', 4).toLowerCase()}`);
       body.status = isVendor ? 'draft' : body.status || 'approved';
       delete body.isFeatured;
+      if (isVendor) { delete body.isVisible; delete body.statusNote; }
       const p = await Property.create(body);
       audit(req, 'property.create', 'Property', p._id);
       created(res, p);
@@ -87,11 +95,14 @@ export function propertyManager(mode) {
       if (body.category) await assertPropertyType(body.category?._id || body.category);
       delete body.vendor;
       delete body.rating;
+      delete body.starRating; // ratings come only from guest reviews
       delete body.minPrice;
+      if (isVendor) await keepApproved(body, p);
       if (isVendor) {
         delete body.status;
         delete body.isFeatured;
         delete body.statusNote;
+        delete body.isVisible;
       }
       if (body.slug) body.slug = slugify(body.slug);
       p.set(body);
@@ -110,17 +121,20 @@ export function propertyManager(mode) {
     /** Vendor → admin approval queue */
     async submit(req, res) {
       const p = await ownProperty(req);
+      if (p.status === 'pending') throw ApiError.conflict('Already waiting for approval');
+      if (!['draft', 'rejected'].includes(p.status)) throw ApiError.conflict(`This property is ${p.status}, so it can’t be submitted`);
       const rooms = await RoomType.countDocuments({ property: p._id, isActive: true });
       if (!rooms) throw ApiError.badRequest('Add at least one room type before submitting');
       if (!p.images?.length) throw ApiError.badRequest('Add at least one photo before submitting');
       p.status = 'pending';
+      p.statusNote = undefined;
       await p.save();
       await notify({ recipientType: 'admin', title: 'Property awaiting approval', body: p.name, type: 'property_pending', data: { propertyId: p._id } });
       ok(res, p, undefined, 'Submitted for approval');
     },
     async uploadImages(req, res) {
       const files = req.files || [];
-      ok(res, files.map((f) => ({ url: publicUrlFor(f.path), alt: '' })));
+      ok(res, files.map((f) => ({ url: f.url, alt: '' })));
     },
 
     // ─── Room types ───
@@ -208,6 +222,20 @@ export function propertyManager(mode) {
       ok(res, null, undefined, s === 'scheduled' ? 'Deal deleted' : 'Deal ended');
     },
 
+    // ─── Vendor requests (new tags, house rules, amenities, room features) ───
+    async options(_req, res) { ok(res, await editorOptions()); },
+    async requests(req, res) {
+      if (isVendor) return ok(res, await vendorRequests(req.vendor._id));
+      const { items, meta } = await adminRequests(req.query);
+      return ok(res, items, meta);
+    },
+    async createRequest(req, res) { created(res, await createRequest(req.vendor, req.body), 'Sent for approval'); },
+    async decideRequest(req, res) {
+      const doc = await decideRequest(req.params.id, req.body, req.admin._id);
+      audit(req, `catalogRequest.${doc.status}`, 'CatalogRequest', doc._id, { name: doc.name, kind: doc.kind });
+      ok(res, doc, undefined, `Request ${doc.status}`);
+    },
+
     async pricingRules(req, res) {
       await ownProperty(req);
       ok(res, await PricingRule.find({ property: req.params.id }).populate('roomType', 'name').sort({ priority: -1 }).lean());
@@ -275,23 +303,13 @@ export function propertyManager(mode) {
 
     // ─── Bookings ───
     async bookings(req, res) {
-      const { filter, skip, limit, page, sort } = buildListQuery(req.query, { searchFields: ['bookingCode', 'primaryGuest.name', 'primaryGuest.phone', 'pnr'], filterFields: ['status', 'type', 'property', 'paymentStatus', 'source'], baseFilter: isVendor ? { vendor: req.vendor._id, type: 'hotel' } : {} });
-      if (isVendor) filter.status = filter.status || { $ne: 'pending_payment' };
-      const now = today();
-      if (req.query.tab === 'upcoming') Object.assign(filter, { checkIn: { $gte: now }, status: { $in: ['confirmed', 'pending_approval'] } });
-      if (req.query.tab === 'active') Object.assign(filter, { status: 'checked_in' });
-      if (req.query.tab === 'completed') Object.assign(filter, { status: { $in: ['checked_out', 'completed'] } });
-      if (req.query.tab === 'cancelled') Object.assign(filter, { status: 'cancelled' });
-      if (req.query.from || req.query.to) {
-        filter.createdAt = {};
-        if (req.query.from) filter.createdAt.$gte = toDay(req.query.from);
-        if (req.query.to) filter.createdAt.$lt = addDays(req.query.to, 1);
-      }
+      const { skip, limit, page, sort } = buildListQuery(req.query);
+      const { filter, counts } = await bookingFilters(req.query, isVendor ? req.vendor._id : null);
       const [items, total] = await Promise.all([
         Booking.find(filter).sort(sort).skip(skip).limit(limit).populate('user', 'name phone email').populate('property', 'name').lean(),
         Booking.countDocuments(filter),
       ]);
-      ok(res, items, pageMeta(total, page, limit));
+      ok(res, items, { ...pageMeta(total, page, limit), counts });
     },
     async booking(req, res) {
       const b = await Booking.findOne({ _id: req.params.bookingId, ...scope(req) }).populate('user', 'name phone email').populate('property', 'name address contact').populate('roomType', 'name').lean();

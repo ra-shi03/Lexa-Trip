@@ -50,7 +50,7 @@ export function liveStream(req, res) {
 }
 
 /** Admin paths whose writes never change what guests see. Everything else publishes "content". */
-const PRIVATE_SEGMENTS = new Set(['settings', 'finance', 'payouts', 'subadmins', 'support', 'users', 'notifications', 'bookings', 'commission-rules', 'uploads', 'dashboard', 'reports', 'audit']);
+const PRIVATE_SEGMENTS = new Set(['settings', 'finance', 'payouts', 'subadmins', 'support', 'users', 'notifications', 'bookings', 'commission-rules', 'uploads', 'dashboard', 'reports', 'audit', 'push-token']);
 
 /** Admin router middleware: after a successful write, tell connected clients to re-fetch. */
 export function publishAdminWrites(req, res, next) {

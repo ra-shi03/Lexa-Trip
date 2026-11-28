@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { MapPin, Clock, Check, X, Users, Maximize, BedDouble, Sparkles, Heart, Share2, ShieldCheck, Coffee } from 'lucide-react';
+import { MapPin, Clock, Check, X, Users, Maximize, BedDouble, Sparkles, Heart, Share2, ShieldCheck, Coffee, Star } from 'lucide-react';
 import { Container } from '../../components/layout/UserLayout';
 import { StaySearchForm, useStayQuery } from '../../components/search/SearchForms';
 import { DynIcon, PropertyCard } from '../../components/stay/StayComponents';
-import { Img, Stars, RatingPill, Badge, Button, PageLoader, ErrorState, Modal, Skeleton, Avatar } from '../../components/ui';
+import { Img, RatingPill, Badge, Button, PageLoader, ErrorState, Modal, Skeleton, Avatar } from '../../components/ui';
 import { useApi } from '../../hooks/useApi';
 import { api } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -54,7 +54,7 @@ export default function PropertyDetail() {
       <Container className="pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Badge tone="primary">{p.category?.name}</Badge><Stars value={p.starRating} /></div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Badge tone="primary">{p.category?.name}</Badge></div>
             <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{p.name}</h1>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted"><MapPin size={15} />{[p.address?.line1, p.address?.area, p.address?.landmark && `Near ${p.address.landmark}`, p.address?.city?.name, p.address?.city?.state?.name, p.address?.pincode].filter(Boolean).join(', ')}</p>
             <div className="mt-2"><RatingPill rating={p.rating} /></div>
@@ -185,7 +185,7 @@ export default function PropertyDetail() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   {data.reviews.map((r) => (
                     <div key={r._id} className="card card-pad">
-                      <div className="flex items-center gap-3"><Avatar name={r.user?.name} size={34} /><div><p className="text-sm font-bold">{r.user?.name || 'Guest'}</p><p className="text-xs text-muted">{timeAgo(r.createdAt)}</p></div><span className="ml-auto rounded-md bg-secondary px-1.5 text-xs font-bold text-white">{r.rating * 2}/10</span></div>
+                      <div className="flex items-center gap-3"><Avatar name={r.user?.name} size={34} /><div><p className="text-sm font-bold">{r.user?.name || 'Guest'}</p><p className="text-xs text-muted">{timeAgo(r.createdAt)}</p></div><span className="ml-auto rounded-md bg-secondary px-1.5 text-xs font-bold text-white"><Star size={10} fill="currentColor" strokeWidth={0} className="mr-0.5 inline align-[-1px]" aria-label="Rating" />{r.rating}</span></div>
                       {r.title && <p className="mt-3 font-semibold">{r.title}</p>}
                       <p className="mt-1 text-sm text-muted">{r.comment}</p>
                     </div>

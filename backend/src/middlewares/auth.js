@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
 import Admin from '../models/Admin.js';
 import { verifyAccessToken } from '../services/token.service.js';
+import { onboarding, isProfileLocked } from '../services/vendorOnboarding.service.js';
 
 const MODELS = { user: User, vendor: Vendor, admin: Admin };
 
@@ -55,10 +56,23 @@ export const requireVendor = async (req, _res, next) => {
   next();
 };
 
-/** Vendor must be approved for operations that affect live inventory. */
+/** Verified details are read-only after approval. */
+export const requireEditableProfile = (req, _res, next) => {
+  if (isProfileLocked(req.vendor)) throw ApiError.forbidden('Your account is approved, so business details, bank and documents are locked. Contact support to change them.');
+  next();
+};
+
+/** The one exception for documents: the admin rejected one and wants it again. */
+export const requireDocumentSlot = (req, res, next) => {
+  if (isProfileLocked(req.vendor) && !req.vendor.documents.some((d) => d.status === 'rejected')) return requireEditableProfile(req, res, next);
+  return next();
+};
+
+/** Properties, inventory, bookings and money screens open only after admin approval. */
 export const requireApprovedVendor = (req, _res, next) => {
   if (req.vendor?.status !== 'approved') {
-    throw ApiError.forbidden('Your vendor account is awaiting admin approval');
+    const { stage } = onboarding(req.vendor);
+    throw ApiError.forbidden(stage === 'review' ? 'Your profile is under review. This opens after admin approval.' : 'Complete your business profile and get it approved first');
   }
   next();
 };

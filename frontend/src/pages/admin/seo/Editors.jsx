@@ -277,7 +277,7 @@ export function NodeEditor() {
           {type === 'City' && <Input label="Short description" value={doc.description || ''} onChange={(e) => set({ description: e.target.value })} />}
           {type === 'HotelCategory' && <Select label="Star rating (optional rule)" placeholder="None" value={doc.starRating ?? ''} onChange={(e) => set({ starRating: e.target.value ? Number(e.target.value) : undefined })} options={[5, 4, 3, 2].map((n) => ({ value: n, label: `${n} star` }))} />}
           {type !== 'HotelCategory' && <div className="sm:col-span-2"><SingleImage label="Image" value={doc.image ? { url: doc.image } : null} onChange={(v) => set({ image: v?.url || '' })} uploadUrl={UPLOAD} /></div>}
-          {type === 'City' && <div className="flex flex-col gap-3 sm:col-span-2"><Checkbox label="Popular destination (home screen)" checked={doc.isPopular} onChange={(v) => set({ isPopular: v })} /><Checkbox label="Active" checked={doc.isActive} onChange={(v) => set({ isActive: v })} /></div>}
+          {type === 'City' && <div className="flex flex-col gap-3 sm:col-span-2"><Checkbox label="Active" checked={doc.isActive} onChange={(v) => set({ isActive: v })} /></div>}
         </div>
       )}
       {tab === 'content' && <div className="card card-pad"><ContentEditor value={doc.content} onChange={(v) => set({ content: v })} h1Placeholder={type === 'City' ? `Hotels in ${doc.name}` : doc.name} /></div>}

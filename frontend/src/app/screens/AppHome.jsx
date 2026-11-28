@@ -37,12 +37,12 @@ function RotatingHint({ hidden }) {
 
 /** App home: hero + search card, quick services, categories, offers, destinations, featured stays — all admin-driven. */
 export default function AppHome() {
-  const { home: cfg, homeSections, feature, ai, brand, app, loading: settingsLoading } = useSettings();
+  const { home: cfg, popularDestinations: popular, featuredStays: picks, homeSections, feature, ai, brand, app, loading: settingsLoading } = useSettings();
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
-  const { data, loading } = useApi(() => api.get('/public/home'), [], { live: 'content' });
+  const { data, loading } = useApi(() => api.get('/public/home'), [], { live: ['content', 'settings'] });
   const hero = cfg?.hero || {};
   // Admin → Banners (placement "home_hero") wins; otherwise fall back to the slides in Settings → Home page
   const bannerSlides = (data?.heroBanners || []).filter((b) => b.image).map((b) => ({ url: b.image, title: b.title, subtitle: b.subtitle, link: b.link }));
@@ -96,7 +96,7 @@ export default function AppHome() {
   const services = app?.quickServicesEnabled === false ? [] : visibleServices(app?.quickServices, feature, ai?.assistantName);
 
   return (
-    <div className="pb-6">
+    <div className="app-home pb-6">
       <section className="relative isolate overflow-hidden rounded-b-[32px] bg-secondary pb-6 text-white">
         {slides.length > 0 && <HeroSlider captions={false} fade={false} slides={slides} overlay={hero.overlayOpacity ?? 0.6} seconds={hero.autoplaySeconds || 6} />}
         <div className="pt-safe relative px-4 pt-6">
@@ -193,26 +193,26 @@ export default function AppHome() {
         </section></Reveal>
       )}
 
-      {on('popular_destinations') && (
-        <section className="pt-7"><Head title="Popular destinations" /><div className="hscroll px-4">
+      {on('popular_destinations') && popular?.enabled !== false && (loading || data?.destinations?.length > 0) && (
+        <section className="pt-7"><Head title={popular?.title || 'Popular destinations'} /><div className="hscroll px-4">
           {loading && Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-52 w-40" />)}
           {data?.destinations?.map((c, n) => (
             <Reveal key={c._id} delay={n * 60} scale>
               <Link to={`/search?city=${encodeURIComponent(c.name)}`} className="hover-lift group relative block h-52 w-40 overflow-hidden rounded-brand-lg">
                 <Img src={c.image} alt={c.name} className="absolute inset-0 h-full w-full transition duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-secondary/90 via-transparent to-transparent" />
-                <div className="absolute bottom-0 p-3 text-white"><p className="font-extrabold">{c.name}</p><p className="text-[11px] text-white/80">{c.propertyCount ? `${c.propertyCount} stays` : c.state?.name}{c.priceFrom ? ` · ${money(c.priceFrom)}+` : ''}</p></div>
+                <div className="absolute bottom-0 p-3 text-white"><p className="font-extrabold">{c.name}</p><p className="text-[11px] text-white/80">{c.propertyCount ? `${c.propertyCount} ${c.propertyCount === 1 ? 'stay' : 'stays'}` : c.state?.name}{c.priceFrom ? ` · ${money(c.priceFrom)}+` : ''}</p></div>
               </Link>
             </Reveal>
           ))}
         </div></section>
       )}
 
-      {on('featured_properties') && loading && !data && (
+      {on('featured_properties') && picks?.enabled !== false && loading && !data && (
         <section className="pt-7" aria-hidden="true"><Skeleton className="mx-4 mb-3 h-5 w-40" /><div className="hscroll px-4">{[0, 1].map((i) => <PropertyCardSkeleton key={i} className="w-[220px] flex-none" />)}</div></section>
       )}
-      {on('featured_properties') && data?.featured?.length > 0 && (
-        <Reveal><section className="pt-7"><Head title="Handpicked stays" link="/search?sort=rating" /><div className="hscroll px-4">
+      {on('featured_properties') && picks?.enabled !== false && data?.featured?.length > 0 && (
+        <Reveal><section className="pt-7"><Head title={picks?.title || 'Handpicked stays'} link="/search?sort=rating" /><div className="hscroll px-4">
           {data.featured.map((p) => <div key={p._id} className="w-[220px]"><PropertyCard p={p} /></div>)}
         </div></section></Reveal>
       )}

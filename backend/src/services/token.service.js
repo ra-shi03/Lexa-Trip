@@ -6,6 +6,7 @@ import RefreshToken from '../models/RefreshToken.js';
 import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
 import Admin from '../models/Admin.js';
+import PushToken from '../models/PushToken.js';
 
 /**
  * Sessions = short-lived access JWT (Authorization: Bearer) + long-lived opaque refresh token.
@@ -122,6 +123,9 @@ export async function rotateSession(req, res, type) {
 
 /** Logout on this device: revokes the presented token's family. Always succeeds (idempotent). */
 export async function revokeSession(req, res, type) {
+  // this device stops receiving pushes for the account it signs out of
+  const pushToken = typeof req.body?.pushToken === 'string' ? req.body.pushToken : '';
+  if (pushToken) await PushToken.deleteOne({ token: pushToken, recipientType: type });
   const raw = readRefreshToken(req, type);
   if (raw) {
     const doc = await RefreshToken.findOne({ tokenHash: sha256(raw), accountType: type }).select('family').lean();
@@ -139,5 +143,6 @@ export async function revokeAllSessions(type, accountId, { exceptReq, reason = '
   }
   const filter = { accountType: type, account: accountId, revokedAt: null, ...(exceptFamily ? { family: { $ne: exceptFamily } } : {}) };
   const r = await RefreshToken.updateMany(filter, { revokedAt: new Date(), revokedReason: reason });
+  await PushToken.deleteMany({ recipientType: type, recipient: accountId }); // signed-in devices re-register on next start
   return r.modifiedCount;
 }

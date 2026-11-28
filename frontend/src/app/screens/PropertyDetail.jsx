@@ -1,18 +1,28 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { MapPin, Clock, Check, X, Users, Maximize, BedDouble, Sparkles, Heart, Share2, ShieldCheck, Coffee, Flame, Timer } from 'lucide-react';
+import { MapPin, Clock, Check, X, Users, Maximize, BedDouble, Sparkles, Heart, Share2, ShieldCheck, Flame, Timer } from 'lucide-react';
 import { Container } from '../Container';
 import { StaySearchForm, useStayQuery } from '@/components/search/SearchForms';
 import { DynIcon, PropertyCard } from '@/components/stay/StayComponents';
-import { Img, Stars, RatingPill, Badge, Button, ErrorState, Modal, Skeleton, Avatar } from '@/components/ui';
+import { Img, RatingPill, Badge, Button, ErrorState, Modal, Skeleton } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { PropertyDetailSkeleton } from '../Skeletons';
-import { money, plural, dateLabel, cx, timeAgo, isoDate, addDays } from '@/lib/format';
+import { money, plural, dateLabel, cx, isoDate, addDays } from '@/lib/format';
+import { ReviewsList } from '@/components/stay/Reviews';
 import { dealLabel, dealEnds, dealWindow } from '@/lib/deals';
+
+// Same four options the vendor picks per rate plan ("Meals"), worded for guests
+const MEALS = [
+  ['EP', 'Room only', 'No meals'],
+  ['CP', 'Breakfast', 'Breakfast included'],
+  ['MAP', 'Breakfast + 1 meal', 'Breakfast + lunch or dinner'],
+  ['AP', 'All meals', 'Breakfast, lunch and dinner'],
+];
+const mealText = (k) => MEALS.find((m) => m[0] === k)?.[2] || 'No meals';
 
 export default function PropertyDetail() {
   const { slug } = useParams();
@@ -23,6 +33,7 @@ export default function PropertyDetail() {
   const { user, update } = useAuth();
   const { feature } = useSettings();
   const [gallery, setGallery] = useState(false);
+  const [meal, setMeal] = useState('');
   const { data, loading, error, reload } = useApi(() => api.get(`/public/properties/${slug}`), [slug], { live: 'content' });
   const p = data?.property;
   const rateKey = `${p?._id}-${sp.toString()}`;
@@ -33,7 +44,20 @@ export default function PropertyDetail() {
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const images = p.images || [];
-  const cheapest = rates?.filter((r) => r.available).sort((a, b) => a.pricing.totalAmount - b.pricing.totalAmount)[0];
+  // Meal filter: only the meal plans this stay actually sells are offered
+  const planMeal = (r) => r.ratePlan.mealPlan || data?.rooms?.find((x) => String(x._id) === String(r.roomTypeId))?.ratePlans?.find((x) => x.code === r.ratePlan.code)?.mealPlan || 'EP';
+  const sold = new Set((data?.rooms || []).flatMap((rt) => (rt.ratePlans || []).filter((x) => x.isActive !== false).map((x) => x.mealPlan || 'EP')));
+  // cheapest bookable price per meal plan, for the selector
+  const fromPrice = {};
+  for (const r of rates || []) {
+    if (!r.available) continue;
+    const k = planMeal(r);
+    fromPrice[k] = Math.min(fromPrice[k] ?? Infinity, r.pricing.totalAmount);
+  }
+  const activeMeal = sold.has(meal) ? meal : '';
+  const shownRates = activeMeal ? rates?.filter((r) => planMeal(r) === activeMeal) : rates;
+  const shownRooms = (data?.rooms || []).filter((rt) => !activeMeal || (rt.ratePlans || []).some((x) => x.isActive !== false && (x.mealPlan || 'EP') === activeMeal));
+  const cheapest = shownRates?.filter((r) => r.available).sort((a, b) => a.pricing.totalAmount - b.pricing.totalAmount)[0];
   const saved = (user?.wishlist || []).map(String).includes(String(p._id));
 
   const book = (roomTypeId, ratePlanCode) => {
@@ -56,7 +80,7 @@ export default function PropertyDetail() {
       <Container className="pt-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Badge tone="primary">{p.category?.name}</Badge><Stars value={p.starRating} /></div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted"><Badge tone="primary">{p.category?.name}</Badge></div>
             <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{p.name}</h1>
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted"><MapPin size={15} />{[p.address?.line1, p.address?.area, p.address?.landmark && `Near ${p.address.landmark}`, p.address?.city?.name, p.address?.city?.state?.name, p.address?.pincode].filter(Boolean).join(', ')}</p>
             <div className="mt-2"><RatingPill rating={p.rating} /></div>
@@ -120,9 +144,27 @@ export default function PropertyDetail() {
                 <h2 className="text-xl font-extrabold">Choose your room</h2>
                 <p className="text-sm text-muted">{dateLabel(q.checkIn)} – {dateLabel(q.checkOut)} · {plural(q.adults + q.children, 'guest')} · {plural(q.rooms, 'room')}</p>
               </div>
+              <fieldset className="mb-4">
+                <legend className="mb-2 text-sm font-bold">Meals</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {[['', 'Any'], ...MEALS].map(([k, label]) => {
+                    const offered = !k || sold.has(k);
+                    const on = activeMeal === k;
+                    const price = k ? fromPrice[k] : Math.min(...Object.values(fromPrice));
+                    return (
+                      <button key={k || 'any'} type="button" disabled={!offered} aria-pressed={on} onClick={() => setMeal(k)}
+                        className={cx('flex min-h-[3.75rem] flex-col justify-center rounded-brand border px-3 py-2 text-left transition active:scale-[.98]', !k && 'col-span-2',
+                          on ? 'border-primary bg-primary-soft' : 'border-line bg-card', !offered && 'cursor-not-allowed border-dashed opacity-55')}>
+                        <span className={cx('flex items-center justify-between gap-2 text-sm font-bold', on && 'text-primary')}>{label}{on && <Check size={15} strokeWidth={3} />}</span>
+                        <span className="text-xs text-muted">{!offered ? 'Not offered here' : ratesLoading ? 'Checking…' : Number.isFinite(price) ? `from ${money(price)}` : 'Sold out'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <div className="space-y-4">
-                {data.rooms.map((rt) => {
-                  const plans = rates?.filter((r) => String(r.roomTypeId) === String(rt._id)) || [];
+                {shownRooms.map((rt) => {
+                  const plans = shownRates?.filter((r) => String(r.roomTypeId) === String(rt._id)) || [];
                   return (
                     <div key={rt._id} className="card overflow-hidden">
                       <div className="grid sm:grid-cols-[220px_1fr]">
@@ -143,27 +185,25 @@ export default function PropertyDetail() {
                           {rt.description && <p className="mt-2 text-sm text-muted">{rt.description}</p>}
                           {rt.amenities?.length > 0 && <div className="mt-2.5 flex flex-wrap gap-1.5">{rt.amenities.map((a) => <span key={a._id} className="inline-flex items-center gap-1 rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink"><DynIcon name={a.icon} size={12} className="text-primary" />{a.name}</span>)}</div>}
                           {(rt.extraAdultCharge > 0 || rt.extraChildCharge > 0) && <p className="mt-2 text-xs text-muted">Extra {[rt.extraAdultCharge > 0 && `adult ${money(rt.extraAdultCharge)}`, rt.extraChildCharge > 0 && `child ${money(rt.extraChildCharge)}`].filter(Boolean).join(' · ')} per night beyond {plural(rt.baseOccupancy || 2, 'guest')}.</p>}
-                          <div className="mt-3 divide-y divide-line">
-                            {ratesLoading && <Skeleton className="h-14" />}
+                          <div className="mt-4 space-y-2.5">
+                            {ratesLoading && <Skeleton className="h-24" />}
                             {plans.map((r) => (
-                              <div key={r.ratePlan.code} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold">{r.ratePlan.name || r.ratePlan.code}</p>
-                                  <div className="mt-1 flex flex-wrap gap-1.5">
-                                    {r.ratePlan.mealPlan && r.ratePlan.mealPlan !== 'EP' ? <Badge tone="primary"><Coffee size={11} />{data.mealPlans?.[r.ratePlan.mealPlan]}</Badge> : <Badge>Room only</Badge>}
-                                    {r.ratePlan.refundable ? <Badge tone="success"><Check size={11} />Free cancellation</Badge> : <Badge tone="warning">Non-refundable</Badge>}
-                                    {r.available && r.roomsLeft <= 3 && <Badge tone="danger">{r.roomsLeft} left</Badge>}
-                                  </div>
-                                </div>
+                              <div key={r.ratePlan.code} className="rounded-brand border border-line p-3">
+                                <p className="font-bold leading-snug">{mealText(planMeal(r))}</p>
+                                <p className={cx('mt-0.5 flex items-center gap-1.5 text-[13px] font-semibold', r.ratePlan.refundable ? 'text-success' : 'text-muted')}>
+                                  {r.ratePlan.refundable ? <><Check size={14} />Free cancellation</> : <><X size={14} />Non-refundable</>}
+                                </p>
                                 {r.available ? (
-                                  <div className="flex items-center gap-3">
-                                    <div className="text-right">
-                                      {r.pricing.dealSavings > 0 && <p className="text-[11px] font-bold text-success">Deal · save {money(r.pricing.dealSavings)}</p>}
-                                      <p className="text-lg font-extrabold">{money(r.pricing.totalAmount)}</p><p className="text-[11px] text-muted">total incl. taxes</p>
+                                  <div className="mt-2.5 flex items-end justify-between gap-3 border-t border-line pt-2.5">
+                                    <div>
+                                      {r.pricing.dealSavings > 0 && <p className="text-xs font-bold text-success">You save {money(r.pricing.dealSavings)}</p>}
+                                      <p className="text-xl font-extrabold leading-tight">{money(r.pricing.totalAmount)}</p>
+                                      <p className="text-[11px] text-muted">{plural(r.nights, 'night')}, incl. taxes</p>
+                                      {r.roomsLeft <= 3 && <p className="text-xs font-bold text-danger">Only {r.roomsLeft} left</p>}
                                     </div>
-                                    <Button size="sm" onClick={() => book(rt._id, r.ratePlan.code)}>Book now</Button>
+                                    <Button onClick={() => book(rt._id, r.ratePlan.code)}>Book now</Button>
                                   </div>
-                                ) : <span className="text-sm font-semibold text-danger">{r.reason || 'Unavailable'}</span>}
+                                ) : <p className="mt-2.5 border-t border-line pt-2.5 text-sm font-semibold text-danger">{r.reason || 'Unavailable'}</p>}
                               </div>
                             ))}
                           </div>
@@ -209,16 +249,7 @@ export default function PropertyDetail() {
                     )}
                   </div>
                 )}
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {data.reviews.map((r) => (
-                    <div key={r._id} className="card card-pad">
-                      <div className="flex items-center gap-3"><Avatar name={r.user?.name} size={34} /><div><p className="text-sm font-bold">{r.user?.name || 'Guest'}</p><p className="text-xs text-muted">{timeAgo(r.createdAt)}</p></div><span className="ml-auto rounded-md bg-secondary px-1.5 text-xs font-bold text-white">{r.rating * 2}/10</span></div>
-                      {r.title && <p className="mt-3 font-semibold">{r.title}</p>}
-                      <p className="mt-1 text-sm text-muted">{r.comment}</p>
-                    </div>
-                  ))}
-                  {!data.reviews.length && <p className="text-sm text-muted">No reviews yet.</p>}
-                </div>
+                <ReviewsList propertyId={p._id} rating={p.rating} breakdown={data.ratingBreakdown} reviews={data.reviews} />
               </section>
             )}
           </div>

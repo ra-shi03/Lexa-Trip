@@ -15,7 +15,6 @@ import { importHotels, templateCsv, IMPORT_COLUMNS } from '../../services/seo/im
 import { seoAssist } from '../../services/ai/ai.service.js';
 import { getSettings } from '../../services/settings.service.js';
 import { audit } from '../../services/audit.service.js';
-import { publicUrlFor } from '../../middlewares/upload.js';
 import { env } from '../../config/env.js';
 import { ok, created } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
@@ -217,7 +216,7 @@ export async function uploadMedia(req, res) {
   if (!files.length) throw ApiError.badRequest('Choose at least one image');
   const folder = slugify(req.body.folder || 'general').replace(/-+/g, '-') || 'general';
   const docs = await Media.insertMany(
-    files.map((f) => ({ url: publicUrlFor(f.path), filename: f.originalname, mimeType: f.mimetype, size: f.size, alt: req.body.alt || '', folder: req.body.folder || folder, uploadedBy: req.admin._id })),
+    files.map((f) => ({ url: f.url, filename: f.originalname, mimeType: f.mimetype, size: f.size, alt: req.body.alt || '', folder: req.body.folder || folder, uploadedBy: req.admin._id })),
   );
   created(res, docs, `${docs.length} file(s) uploaded`);
 }

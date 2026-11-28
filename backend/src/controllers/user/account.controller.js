@@ -4,8 +4,8 @@ import Booking from '../../models/Booking.js';
 import Property from '../../models/Property.js';
 import { Notification, Review, SupportTicket } from '../../models/Misc.js';
 import { ok, created } from '../../utils/response.js';
-import { publicUrlFor } from '../../middlewares/upload.js';
 import { ApiError } from '../../utils/ApiError.js';
+import { canReviewBooking } from '../../services/review.service.js';
 
 export const schemas = {
   profile: z.object({
@@ -40,7 +40,7 @@ export async function updateProfile(req, res) {
 
 export async function uploadAvatar(req, res) {
   if (!req.file) throw ApiError.badRequest('Choose a photo');
-  req.user.avatar = publicUrlFor(req.file.path);
+  req.user.avatar = req.file.url;
   await req.user.save();
   ok(res, req.user, undefined, 'Profile photo updated');
 }
@@ -96,7 +96,8 @@ export async function markNotificationsRead(req, res) {
 export async function createReview(req, res) {
   const b = await Booking.findOne({ _id: req.body.bookingId, user: req.user._id, type: 'hotel' });
   if (!b) throw ApiError.notFound('Booking not found');
-  if (!['checked_out', 'completed'].includes(b.status) && new Date(b.checkOut) > new Date()) throw ApiError.badRequest('You can review after your stay');
+  if (!canReviewBooking(b)) throw ApiError.badRequest('You can review only after your stay');
+  if (await Review.exists({ booking: b._id, user: req.user._id })) throw ApiError.conflict('You have already reviewed this stay');
   const review = await Review.create({ property: b.property, user: req.user._id, booking: b._id, rating: req.body.rating, title: req.body.title, comment: req.body.comment });
   created(res, review, 'Thanks! Your review will appear after moderation.');
 }

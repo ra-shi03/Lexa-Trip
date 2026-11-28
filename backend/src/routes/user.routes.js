@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { pushHandlers } from '../services/push.service.js';
 import { validateObjectIdParams } from '../middlewares/security.js';
 import * as acc from '../controllers/user/account.controller.js';
 import * as bk from '../controllers/user/booking.controller.js';
@@ -22,6 +23,10 @@ r.put('/travellers/:id', validate(acc.schemas.traveller), acc.updateTraveller);
 r.delete('/travellers/:id', acc.removeTraveller);
 r.get('/wishlist', acc.wishlist);
 r.post('/wishlist/:propertyId', acc.toggleWishlist);
+// Devices that receive push notifications
+const push = pushHandlers('user', (req) => req.user);
+r.post('/push-token', push.register);
+r.delete('/push-token', push.remove);
 r.get('/notifications', acc.notifications);
 r.post('/notifications/read', acc.markNotificationsRead);
 r.post('/reviews', validate(acc.schemas.review), acc.createReview);

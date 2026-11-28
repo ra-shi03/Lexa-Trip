@@ -9,6 +9,7 @@ import Home from './pages/user/Home';
 import Search from './pages/user/Search';
 import PropertyDetail from './pages/user/PropertyDetail';
 import { StaticPage, Offers, NotFound } from './pages/user/Misc';
+import { ApprovedOnly } from './components/panel/VendorOnboarding';
 
 // Guest flows that are not on the first screen
 const Checkout = lazy(() => import('./pages/user/Checkout'));
@@ -52,19 +53,22 @@ const people = () => import('./pages/admin/People');
 const ops = () => import('./pages/admin/Operations');
 const res = () => import('./pages/admin/Resources');
 const settings = () => import('./pages/admin/settings/Settings');
+const imageSettings = () => import('./pages/admin/settings/ImageSettings');
 const seoHome = () => import('./pages/admin/seo/SeoHome');
 const seoEd = () => import('./pages/admin/seo/Editors');
 const seoTools = () => import('./pages/admin/seo/SeoTools');
+const popularDest = () => import('./pages/admin/PopularDestinations');
+const handpicked = () => import('./pages/admin/HandpickedStays');
 
 const A = {
   Users: mod(people, 'UsersPage'), Vendors: mod(people, 'VendorsPage'), VendorDetail: mod(people, 'VendorDetailPage'), Properties: mod(people, 'PropertiesPage'), Subadmins: mod(people, 'SubadminsPage'), Audit: mod(people, 'AuditPage'),
   Bookings: mod(ops, 'AdminBookings'), Inventory: mod(ops, 'AdminInventory'), Deals: mod(ops, 'AdminDeals'), PropertyEdit: mod(ops, 'AdminPropertyEdit'), Reviews: mod(ops, 'ReviewsPage'), Support: mod(ops, 'SupportPage'), AiLogs: mod(ops, 'AiConversationsPage'),
   Transactions: mod(ops, 'TransactionsPage'), Refunds: mod(ops, 'RefundsPage'), Payouts: mod(ops, 'PayoutsPage'), Reports: mod(ops, 'AdminReports'),
-  Categories: mod(res, 'Categories'), Amenities: mod(res, 'Amenities'), Coupons: mod(res, 'Coupons'), Banners: mod(res, 'Banners'), Pages: mod(res, 'Pages'), Faqs: mod(res, 'Faqs'), Commission: mod(res, 'CommissionRules'),
-  Appearance: mod(settings, 'AppearanceSettings'), HomeContent: mod(settings, 'HomeContentSettings'), MobileApp: mod(settings, 'MobileAppSettings'), Region: mod(settings, 'RegionSettings'), LoginPage: mod(settings, 'LoginPageSettings'), Features: mod(settings, 'FeatureSettings'), Integrations: mod(settings, 'IntegrationSettings'), Business: mod(settings, 'BusinessSettings'),
+  Categories: mod(res, 'Categories'), Requests: mod(res, 'VendorRequestsPage'), Amenities: mod(res, 'Amenities'), Coupons: mod(res, 'Coupons'), Banners: mod(res, 'Banners'), Pages: mod(res, 'Pages'), Faqs: mod(res, 'Faqs'), Commission: mod(res, 'CommissionRules'),
+  Appearance: mod(settings, 'AppearanceSettings'), HomeContent: mod(settings, 'HomeContentSettings'), MobileApp: mod(settings, 'MobileAppSettings'), Region: mod(settings, 'RegionSettings'), ImageStorage: mod(imageSettings, 'ImageSettings'), LoginPage: mod(settings, 'LoginPageSettings'), Features: mod(settings, 'FeatureSettings'), Integrations: mod(settings, 'IntegrationSettings'), Business: mod(settings, 'BusinessSettings'),
   SeoOverview: mod(seoHome, 'SeoOverview'), SeoExplorer: mod(seoHome, 'SeoExplorer'),
   HotelEditor: mod(seoEd, 'HotelEditor'), ItineraryEditor: mod(seoEd, 'ItineraryEditor'), ArticleEditor: mod(seoEd, 'ArticleEditor'), NodeEditor: mod(seoEd, 'NodeEditor'),
-  Media: mod(seoTools, 'MediaLibrary'), Import: mod(seoTools, 'BulkImport'), Sitemap: mod(seoTools, 'SitemapPage'), Redirects: mod(seoTools, 'RedirectsPage'), Destinations: mod(seoTools, 'DestinationsPage'),
+  Media: mod(seoTools, 'MediaLibrary'), Import: mod(seoTools, 'BulkImport'), Sitemap: mod(seoTools, 'SitemapPage'), Redirects: mod(seoTools, 'RedirectsPage'), Destinations: mod(seoTools, 'DestinationsPage'), PopularDestinations: mod(popularDest, 'PopularDestinations'), HandpickedStays: mod(handpicked, 'HandpickedStays'),
 };
 
 const S = (el) => <Suspense fallback={<PageLoader />}>{el}</Suspense>;
@@ -119,14 +123,14 @@ const router = createBrowserRouter([
     path: '/vendor',
     element: S(<Protected role="vendor"><VendorShell /></Protected>),
     children: [
-      { index: true, element: S(<VendorDashboard />) },
-      { path: 'properties', element: S(<VendorProperties />) },
-      { path: 'properties/:id', element: S(<VendorPropertyEdit />) },
-      { path: 'inventory', element: S(<VendorInventory />) },
-      { path: 'deals', element: S(<VendorDeals />) },
-      { path: 'bookings', element: S(<VendorBookings />) },
-      { path: 'earnings', element: S(<VendorEarnings />) },
-      { path: 'reports', element: S(<VendorReports />) },
+      { index: true, element: S(<ApprovedOnly><VendorDashboard /></ApprovedOnly>) },
+      { path: 'properties', element: S(<ApprovedOnly><VendorProperties /></ApprovedOnly>) },
+      { path: 'properties/:id', element: S(<ApprovedOnly><VendorPropertyEdit /></ApprovedOnly>) },
+      { path: 'inventory', element: S(<ApprovedOnly><VendorInventory /></ApprovedOnly>) },
+      { path: 'deals', element: S(<ApprovedOnly><VendorDeals /></ApprovedOnly>) },
+      { path: 'bookings', element: S(<ApprovedOnly><VendorBookings /></ApprovedOnly>) },
+      { path: 'earnings', element: S(<ApprovedOnly><VendorEarnings /></ApprovedOnly>) },
+      { path: 'reports', element: S(<ApprovedOnly><VendorReports /></ApprovedOnly>) },
       { path: 'profile', element: S(<VendorProfile />) },
       { path: 'notifications', element: S(<PanelNotifications endpoint="/vendor/notifications" />) },
     ],
@@ -155,8 +159,11 @@ const router = createBrowserRouter([
       { path: 'finance/commission', element: P('commission', <A.Commission />) },
       { path: 'reports', element: P('revenue_reports', <A.Reports />) },
       { path: 'catalog/destinations', element: P('catalog', <A.Destinations />) },
+      { path: 'catalog/handpicked', element: P('properties', <A.HandpickedStays />) },
+      { path: 'catalog/popular', element: P('catalog', <A.PopularDestinations />) },
       { path: 'catalog/categories', element: P('catalog', <A.Categories />) },
       { path: 'catalog/amenities', element: P('catalog', <A.Amenities />) },
+      { path: 'catalog/requests', element: P('catalog', <A.Requests />) },
       { path: 'coupons', element: P('coupons', <A.Coupons />) },
       { path: 'banners', element: P('content', <A.Banners />) },
       { path: 'pages', element: P('content', <A.Pages />) },
@@ -169,6 +176,7 @@ const router = createBrowserRouter([
       { path: 'settings/integrations', element: P('integrations', <A.Integrations />) },
       { path: 'settings/business', element: P('finance', <A.Business />) },
       { path: 'settings/region', element: P(null, <A.Region />, true) }, // master admin only
+      { path: 'settings/image-storage', element: P(null, <A.ImageStorage />, true) }, // master admin only
       { path: 'subadmins', element: P(null, <A.Subadmins />, true) },
       { path: 'audit', element: P(null, <A.Audit />, true) },
       { path: 'seo', element: P('seo', <A.SeoOverview />) },

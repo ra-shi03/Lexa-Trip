@@ -25,6 +25,7 @@ const amenitySchema = new mongoose.Schema(
     icon: { type: String, default: 'check' },
     group: { type: String, enum: ['general', 'room', 'food', 'wellness', 'business', 'family', 'accessibility', 'safety'], default: 'general' },
     isFilterable: { type: Boolean, default: true },
+    scope: { type: String, enum: ['all', 'property', 'room'], default: 'all' }, // where the editor offers it
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true },

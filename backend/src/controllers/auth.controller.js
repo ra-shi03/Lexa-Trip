@@ -1,3 +1,4 @@
+import { vendorView } from '../services/vendorOnboarding.service.js';
 import { z } from 'zod';
 import User from '../models/User.js';
 import Vendor from '../models/Vendor.js';
@@ -71,10 +72,8 @@ export async function userMe(req, res) {
 export async function vendorRegister(req, res) {
   if (await Vendor.exists({ email: req.body.email })) throw ApiError.conflict('An account with this email already exists');
   const vendor = await Vendor.create(req.body);
-  await notify({ recipientType: 'admin', title: 'New vendor registration', body: `${vendor.businessName} (${vendor.email}) is awaiting approval`, type: 'vendor_pending', data: { vendorId: vendor._id } });
-  const v = vendor.toObject();
-  delete v.password;
-  created(res, { ...(await issueSession(req, res, 'vendor', vendor._id)), vendor: v }, 'Registered — your account is pending admin approval');
+  await notify({ recipientType: 'admin', title: 'New vendor registration', body: `${vendor.businessName} (${vendor.email}) registered and has to complete their profile`, type: 'vendor_pending', data: { vendorId: vendor._id } });
+  created(res, { ...(await issueSession(req, res, 'vendor', vendor._id)), vendor: vendorView(vendor) }, 'Registered — complete your business profile to get approved');
 }
 
 export async function vendorLogin(req, res) {
@@ -83,13 +82,11 @@ export async function vendorLogin(req, res) {
   if (vendor.status === 'suspended') throw ApiError.forbidden('Your vendor account is suspended');
   vendor.lastLoginAt = new Date();
   await vendor.save();
-  const v = vendor.toObject();
-  delete v.password;
-  ok(res, { ...(await issueSession(req, res, 'vendor', vendor._id)), vendor: v });
+  ok(res, { ...(await issueSession(req, res, 'vendor', vendor._id)), vendor: vendorView(vendor) });
 }
 
 export async function vendorMe(req, res) {
-  ok(res, req.vendor);
+  ok(res, vendorView(req.vendor));
 }
 
 // ── Admin / Sub-admin ──

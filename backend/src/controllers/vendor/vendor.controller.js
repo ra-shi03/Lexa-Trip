@@ -1,9 +1,11 @@
+import { removePrivateFile, sendPrivateFile } from '../../services/privateStorage.service.js';
+import { onboarding, vendorView, publicDocuments, isProfileLocked } from '../../services/vendorOnboarding.service.js';
+import { notify } from '../../services/notification/notification.service.js';
 import Property from '../../models/Property.js';
 import Booking from '../../models/Booking.js';
 import { Payout } from '../../models/Finance.js';
 import { Notification } from '../../models/Misc.js';
 import { Inventory } from '../../models/Inventory.js';
-import { publicUrlFor } from '../../middlewares/upload.js';
 import { ok } from '../../utils/response.js';
 import { ApiError } from '../../utils/ApiError.js';
 import { toDay, addDays } from '../../utils/helpers.js';
@@ -38,7 +40,24 @@ export async function dashboard(req, res) {
   });
 }
 
+// Format checks run only on values being changed, so older records can still be saved
+const FORMATS = [
+  ['phone', /^[6-9]\d{9}$/, 'Enter a valid 10-digit mobile number'],
+  ['pan', /^[A-Z]{5}\d{4}[A-Z]$/i, 'Enter a valid PAN (e.g. ABCDE1234F)'],
+  ['gstin', /^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/i, 'Enter a valid GSTIN (e.g. 08ABCDE1234F1Z5)'],
+];
+const BANK_FORMATS = [
+  ['accountNumber', /^\d{9,18}$/, 'Account number must be 9 to 18 digits'],
+  ['upiId', /^[\w.-]{2,256}@[a-z][a-z0-9.-]{1,64}$/i, 'Enter a valid UPI ID (e.g. name@okhdfcbank)'],
+];
+
 export async function updateProfile(req, res) {
+  for (const [key, pattern, message] of FORMATS) {
+    const value = req.body[key];
+    if (value && value !== req.vendor[key] && !pattern.test(value)) throw ApiError.badRequest(message);
+  }
+  const pincode = req.body.address?.pincode;
+  if (pincode && pincode !== req.vendor.address?.pincode && !/^[1-9]\d{5}$/.test(pincode)) throw ApiError.badRequest('Enter a valid 6-digit pincode');
   const allowed = ['name', 'phone', 'businessName', 'businessType', 'gstin', 'pan', 'address'];
   for (const k of allowed) if (req.body[k] !== undefined) req.vendor[k] = req.body[k];
   await req.vendor.save();
@@ -48,16 +67,54 @@ export async function updateProfile(req, res) {
 export async function updateBank(req, res) {
   const { accountHolder, accountNumber, ifsc, bankName, upiId } = req.body;
   if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(ifsc)) throw ApiError.badRequest('Invalid IFSC code');
+  for (const [key, pattern, message] of BANK_FORMATS) {
+    const value = req.body[key];
+    if (value && value !== req.vendor.bank?.[key] && !pattern.test(value)) throw ApiError.badRequest(message);
+  }
   req.vendor.bank = { accountHolder, accountNumber, ifsc: ifsc?.toUpperCase(), bankName, upiId };
   await req.vendor.save();
   ok(res, req.vendor.bank, undefined, 'Bank details saved');
 }
 
+const DOCUMENT_TYPES = ['gst_certificate', 'pan', 'trade_licence', 'property_proof', 'id_proof', 'cancelled_cheque'];
+
+/** One document per type: a new upload replaces the old file. */
 export async function uploadDocument(req, res) {
-  if (!req.file) throw ApiError.badRequest('Choose a file');
-  req.vendor.documents.push({ type: req.body.type || 'other', url: publicUrlFor(req.file.path) });
+  const { file, vendor } = req;
+  if (!file) throw ApiError.badRequest('Choose a file');
+  const { type } = req.body;
+  const existing = vendor.documents.filter((d) => d.type === type);
+  let problem;
+  if (!DOCUMENT_TYPES.includes(type)) problem = ApiError.badRequest('Choose a document type');
+  else if (isProfileLocked(vendor) && !existing.some((d) => d.status === 'rejected')) problem = ApiError.forbidden('Only a document the admin rejected can be uploaded again');
+  if (problem) {
+    await removePrivateFile(file.key);
+    throw problem;
+  }
+  const replaced = existing.map((d) => d.file);
+  existing.forEach((d) => vendor.documents.pull(d._id));
+  vendor.documents.push({ type, file: file.key, mime: file.mimetype });
+  await vendor.save();
+  await Promise.all(replaced.filter(Boolean).map(removePrivateFile));
+  ok(res, publicDocuments(vendor.documents), undefined, 'Document uploaded for verification');
+}
+
+/** A vendor can open only their own documents. */
+export async function documentFile(req, res) {
+  await sendPrivateFile(res, req.vendor.documents.id(req.params.docId));
+}
+
+/** Ask the admin to approve the account — only once everything required is filled in */
+export async function submitProfile(req, res) {
+  const { stage, missing } = onboarding(req.vendor);
+  if (stage === 'approved') throw ApiError.conflict('Your account is already approved');
+  if (stage === 'review') throw ApiError.conflict('Your profile is already under review');
+  if (stage === 'suspended') throw ApiError.forbidden('Your vendor account is suspended');
+  if (missing.length) throw ApiError.badRequest(`Complete your profile first: ${missing.map((m) => m.label).join(', ')}`, missing);
+  req.vendor.set({ status: 'pending', statusNote: undefined, submittedAt: new Date() });
   await req.vendor.save();
-  ok(res, req.vendor.documents, undefined, 'Document uploaded for verification');
+  await notify({ recipientType: 'admin', title: 'Vendor ready for approval', body: `${req.vendor.businessName} (${req.vendor.email}) submitted their business profile`, type: 'vendor_pending', data: { vendorId: req.vendor._id } });
+  ok(res, vendorView(req.vendor), undefined, 'Submitted for approval');
 }
 
 export async function earnings(req, res) {

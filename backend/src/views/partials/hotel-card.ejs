@@ -6,7 +6,7 @@
   </a>
   <div class="card-body">
     <h3><a href="<%= url %>"><%= h.name %></a></h3>
-    <% if (h.starRating) { %><div class="stars" aria-label="<%= h.starRating %> star"><%= '★'.repeat(h.starRating) %></div><% } %>
+    <% if (h.starRating) { %><div class="stars" aria-label="<%= h.starRating %> star"><%- include('stars', { count: h.starRating }) %></div><% } %>
     <% if (h.shortDescription) { %><p class="muted clamp-2"><%= h.shortDescription %></p><% } %>
     <% if (h.priceFrom) { %><p class="price">from <b><%= fmt(h.priceFrom) %></b> / night</p><% } %>
   </div>

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import { getSettings } from './settings.service.js';
-import { UPLOAD_DIR } from '../middlewares/upload.js';
+import { UPLOAD_DIR } from './storage.service.js';
 
 /**
  * Brand assets driven by Admin → Theme & branding:

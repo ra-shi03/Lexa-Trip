@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router';
-import { Menu, X, LogOut, Bell, ExternalLink, ChevronDown } from 'lucide-react';
+import { Menu, X, LogOut, Bell, ExternalLink, ChevronDown, Lock } from 'lucide-react';
 import { Logo } from './Logo';
 import { Avatar } from '../ui';
 import { cx } from '../../lib/format';
 
 /**
  * Shared shell for the Vendor panel and the Master/Sub-admin panel.
- * nav: [{ section?, items: [{ to, label, icon, end?, badge? }] }]
+ * nav: [{ section?, items: [{ to, label, icon, end?, badge?, locked? }] }]
  */
 export function PanelLayout({ nav, account, roleLabel, onLogout, homeTo, notificationsTo }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +34,7 @@ export function PanelLayout({ nav, account, roleLabel, onLogout, homeTo, notific
               >
                 <it.icon size={17} />
                 <span className="flex-1 truncate">{it.label}</span>
+                {it.locked && <Lock size={13} className="opacity-60" aria-label="Locked until approval" />}
                 {it.badge ? <span className="rounded-full bg-white/20 px-1.5 text-[11px] font-bold">{it.badge}</span> : null}
               </NavLink>
             ))}

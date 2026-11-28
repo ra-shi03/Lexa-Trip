@@ -1,8 +1,11 @@
+import { featuredStays } from '../../services/featured.service.js';
+import { popularCities } from '../../services/destination.service.js';
 import Property from '../../models/Property.js';
 import RoomType from '../../models/RoomType.js';
 import { State, City } from '../../models/Location.js';
 import { Category, Amenity, Banner, Coupon, Page, Faq } from '../../models/Catalog.js';
 import { Review } from '../../models/Misc.js';
+import { ratingBreakdown } from '../../services/review.service.js';
 import { getPublicSettings } from '../../services/settings.service.js';
 import { searchProperties } from '../../services/search.service.js';
 import { quoteHotel } from '../../services/pricing.service.js';
@@ -59,8 +62,8 @@ export async function home(_req, res) {
 async function buildHome() {
   const [categories, cities, featured, heroBanners, offerBanners, offers, counts, deals] = await Promise.all([
     Category.find({ isActive: true, showOnHome: true }).sort({ sortOrder: 1 }).lean(),
-    City.find({ isActive: true, isPopular: true }).sort({ sortOrder: 1 }).limit(12).populate('state', 'name slug').lean(),
-    searchProperties({ featured: true, limit: 8 }),
+    popularCities(),
+    featuredStays(),
     Banner.find({ ...activeWindow(), placement: 'home_hero' }).sort({ sortOrder: 1 }).lean(),
     Banner.find({ ...activeWindow(), placement: { $in: ['home_offers', 'app_home'] } }).sort({ sortOrder: 1 }).lean(),
     Coupon.find({ ...activeWindow(), isPublic: true }).select('code title description discountType value maxDiscount minAmount services validTo').limit(8).lean(),
@@ -74,7 +77,7 @@ async function buildHome() {
   return {
     categories: await withDealCounts(categories),
     destinations: cities.map((c) => ({ ...c, propertyCount: byCity[String(c._id)]?.count || 0, priceFrom: byCity[String(c._id)]?.minPrice || null })),
-    featured: featured.items,
+    featured,
     dealStays: deals.items.filter((p) => p.available && p.deal),
     dealDates: { checkIn: deals.meta.checkIn, checkOut: deals.meta.checkOut },
     heroBanners,
@@ -113,7 +116,7 @@ export async function states(_req, res) {
 export async function cities(req, res) {
   const filter = { isActive: true };
   if (req.query.state) filter.state = req.query.state;
-  if (req.query.popular) filter.isPopular = true;
+  if (req.query.popular) return ok(res, await popularCities());
   ok(res, await City.find(filter).sort({ sortOrder: 1, name: 1 }).populate('state', 'name slug').lean());
 }
 
@@ -136,7 +139,7 @@ export async function propertyDetail(req, res) {
     Property.find({ _id: { $ne: property._id }, 'address.city': property.address.city?._id, status: 'approved', isVisible: true }).limit(4).select('name slug images minPrice rating starRating').lean(),
   ]);
   const deal = publicDeal((await liveDealsByProperty([property._id]))[String(property._id)]);
-  ok(res, { property, rooms, reviews, similar, mealPlans: MEAL_PLANS, deal });
+  ok(res, { property, rooms, reviews, similar, mealPlans: MEAL_PLANS, deal, ratingBreakdown: await ratingBreakdown(property._id) });
 }
 
 /**
@@ -194,7 +197,7 @@ export async function faqs(req, res) {
 }
 
 export async function propertyReviews(req, res) {
-  ok(res, await Review.find({ property: req.params.id, status: 'approved' }).sort({ createdAt: -1 }).populate('user', 'name').lean());
+  ok(res, await Review.find({ property: req.params.id, status: 'approved' }).select('rating title comment createdAt user').sort({ createdAt: -1 }).limit(100).populate('user', 'name').lean());
 }
 
 export async function airports(req, res) {

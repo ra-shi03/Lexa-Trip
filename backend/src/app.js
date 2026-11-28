@@ -20,7 +20,7 @@ import adminRoutes from './routes/admin.routes.js';
 import ssrRoutes from './routes/ssr.routes.js';
 import { webhook as paymentWebhook } from './controllers/user/payment.controller.js';
 import { channelManager } from './services/channelManager/index.js';
-import { UPLOAD_DIR } from './middlewares/upload.js';
+import { UPLOAD_DIR } from './services/storage.service.js';
 import { formatDateTime } from './utils/clock.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -46,7 +46,7 @@ export function createApp() {
               'font-src': ["'self'", 'https://fonts.gstatic.com', 'data:'],
               'img-src': ["'self'", 'data:', 'blob:', 'https:'],
               'frame-src': ["'self'", 'https://www.openstreetmap.org', 'https://api.razorpay.com', 'https://checkout.razorpay.com'],
-              'connect-src': ["'self'", 'https://api.razorpay.com', 'https://lumberjack.razorpay.com'],
+              'connect-src': ["'self'", 'https://firebaseinstallations.googleapis.com', 'https://fcmregistrations.googleapis.com', 'https://api.razorpay.com', 'https://lumberjack.razorpay.com'],
               'object-src': ["'none'"],
               'base-uri': ["'self'"],
               'frame-ancestors': ["'self'"],

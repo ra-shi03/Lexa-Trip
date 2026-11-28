@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS } from '../constants/defaultSettings.js';
 import { publish, onLive } from './live.service.js';
 import { setPlatformTimezone, platformTimezone, offsetLabel } from '../utils/clock.js';
 
-const SECTIONS = ['brand', 'theme', 'features', 'homeSections', 'home', 'app', 'auth', 'regional', 'booking', 'tax', 'commission', 'social', 'seo', 'integrations'];
+const SECTIONS = ['brand', 'theme', 'features', 'homeSections', 'home', 'popularDestinations', 'featuredStays', 'app', 'auth', 'regional', 'storage', 'booking', 'tax', 'commission', 'social', 'seo', 'integrations'];
 let cache = null;
 let cachedAt = 0;
 const TTL = 30_000;
@@ -53,6 +53,8 @@ export async function getPublicSettings() {
     features: s.features,
     homeSections: s.homeSections,
     home: s.home,
+    popularDestinations: { enabled: s.popularDestinations.enabled, title: s.popularDestinations.title, subtitle: s.popularDestinations.subtitle },
+    featuredStays: { enabled: s.featuredStays.enabled, title: s.featuredStays.title, subtitle: s.featuredStays.subtitle },
     app: s.app,
     auth: s.auth,
     regional: { timezone: platformTimezone(), offset: offsetLabel() },

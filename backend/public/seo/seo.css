@@ -95,7 +95,8 @@ a.card:hover, .hotel-card:hover { box-shadow: 0 12px 30px rgba(20,33,61,.08); te
 .prose blockquote { margin: 1em 0; padding: 12px 16px; border-left: 4px solid var(--primary); background: var(--surface); border-radius: 0 var(--radius) var(--radius) 0; }
 .amenity-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .amenity-list li { padding: 10px 14px; background: var(--surface); border-radius: var(--radius); font-weight: 500; }
-.amenity-list li::before { content: '✓'; color: var(--primary); font-weight: 800; margin-right: 8px; }
+.amenity-list li::before { content: ''; display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: -2px; background: var(--primary);
+  /* lucide "check" */ mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat; }
 .tags { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 8px 0; }
 .tags li { font-size: .78rem; padding: 3px 8px; background: var(--surface); border-radius: 6px; }
 .policies dt { font-weight: 700; margin-top: 12px; }

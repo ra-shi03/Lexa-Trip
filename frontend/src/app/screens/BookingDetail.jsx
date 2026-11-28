@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams, useNavigate } from 'react-router';
 import { CheckCircle2, Printer, MapPin, Calendar, Users, Phone, Mail, Bus, Plane, LifeBuoy, ArrowLeft, Star } from 'lucide-react';
 import { Container } from '../Container';
 import { PriceBreakdown } from '@/components/stay/StayComponents';
 import { PaymentStep } from '@/components/travel/PaymentStep';
-import { Button, StatusBadge, ErrorState, ConfirmDialog, Img, Modal, Textarea, Badge } from '@/components/ui';
+import { Button, StatusBadge, ErrorState, ConfirmDialog, Img, Badge } from '@/components/ui';
 import { useApi } from '@/hooks/useApi';
 import { api } from '@/lib/api';
 import { useToast } from '@/context/ToastContext';
 import { useSettings } from '@/context/SettingsContext';
 import { BookingSkeleton } from '../Skeletons';
+import { ReviewSheet, MyReview } from '@/components/stay/Reviews';
 import { dateFull, dateTime, time, duration, money, plural, titleCase } from '@/lib/format';
 
 /** Confirmation + voucher + manage booking (cancel, review, support) — one screen for all services */
@@ -22,14 +23,15 @@ export default function BookingDetail() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
-  const [review, setReview] = useState(null);
+  const navigate = useNavigate();
+  const [rateOpen, setRateOpen] = useState(false);
 
   if (loading) return <BookingSkeleton />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
   const isNew = sp.get('new') && ['confirmed', 'pending_approval'].includes(b.status);
   const canCancel = ['confirmed', 'pending_approval'].includes(b.status);
-  const canReview = feature('reviews') && b.type === 'hotel' && ['checked_out', 'completed'].includes(b.status);
+  const canReview = feature('reviews') && b.canReview;
 
   const openCancel = async () => {
     try { const { data } = await api.get(`/me/bookings/${id}/cancellation-preview`); setPreview(data); } catch { setPreview(null); }
@@ -38,9 +40,6 @@ export default function BookingDetail() {
   const doCancel = async (reason) => {
     setBusy(true);
     try { const { data } = await api.post(`/me/bookings/${id}/cancel`, { reason }); setData(data); setCancelOpen(false); toast.success('Booking cancelled'); } catch (e) { toast.error(e); } finally { setBusy(false); }
-  };
-  const submitReview = async () => {
-    try { const r = await api.post('/me/reviews', { bookingId: id, ...review }); toast.success(r.message); setReview(null); } catch (e) { toast.error(e); }
   };
 
   return (
@@ -112,7 +111,7 @@ export default function BookingDetail() {
       <div className="mt-5 flex flex-wrap gap-2 print:hidden">
         {['confirmed', 'checked_in', 'checked_out', 'completed', 'pending_approval'].includes(b.status) && <Button variant="outline" icon={Printer} onClick={() => window.print()}>Download / print voucher</Button>}
         <Button variant="outline" icon={LifeBuoy} to={`/account/support?booking=${b._id}`}>Get help</Button>
-        {canReview && <Button variant="outline" icon={Star} onClick={() => setReview({ rating: 5, title: '', comment: '' })}>Write a review</Button>}
+        {canReview && <Button variant="outline" icon={Star} onClick={() => setRateOpen(true)}>Rate your stay</Button>}
         {canCancel && <Button variant="ghost" className="text-danger" onClick={openCancel}>Cancel booking</Button>}
       </div>
 
@@ -127,15 +126,8 @@ export default function BookingDetail() {
         withReason
         reasonLabel="Why are you cancelling?"
       />
-      <Modal open={Boolean(review)} onClose={() => setReview(null)} title="Rate your stay" size="sm" footer={<Button onClick={submitReview}>Submit review</Button>}>
-        {review && (
-          <div className="space-y-4">
-            <div className="flex gap-2">{[1, 2, 3, 4, 5].map((n) => <button key={n} onClick={() => setReview({ ...review, rating: n })} aria-label={`${n} stars`}><Star size={30} className={n <= review.rating ? 'fill-[#f5a524] text-[#f5a524]' : 'text-line'} /></button>)}</div>
-            <input className="input" placeholder="Title" value={review.title} onChange={(e) => setReview({ ...review, title: e.target.value })} />
-            <Textarea placeholder="Tell other travellers about your stay" value={review.comment} onChange={(e) => setReview({ ...review, comment: e.target.value })} />
-          </div>
-        )}
-      </Modal>
+      <ReviewSheet booking={canReview && (rateOpen || sp.get('review')) ? b : null} onClose={() => { setRateOpen(false); if (sp.get('review')) navigate({ search: '' }, { replace: true }); }} onDone={reload} />
+      {b.review && <MyReview review={b.review} />}
     </Container>
   );
 }

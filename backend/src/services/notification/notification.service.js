@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { env } from '../../config/env.js';
 import { Notification } from '../../models/Misc.js';
+import { sendPush } from '../push.service.js';
 
 import { formatDay, formatDateTime } from '../../utils/clock.js';
 let transporter = null;
@@ -31,9 +32,14 @@ export async function sendEmail({ to, subject, html }) {
   }
 }
 
-/** In-app notification (+ optional email). Push (FCM) plugs in here later for the Flutter app. */
+/** Where tapping the push takes the recipient */
+const linkFor = (type, data) => (type !== 'user' ? `/${type}/notifications` : data?.bookingId ? `/booking/${data.bookingId}` : '/account/notifications');
+
+/** In-app notification + push to the recipient's devices (+ optional email). */
 export async function notify({ recipientType, recipient, title, body, type, data, email }) {
   await Notification.create({ recipientType, recipient, title, body, type, data }).catch(() => {});
+  // not awaited: a slow push service must never delay a booking
+  sendPush({ recipientType, recipient, title, body, link: linkFor(recipientType, data) }).catch((e) => console.error('[push]', e.message));
   if (email) await sendEmail({ to: email, subject: title, html: `<p>${body}</p>` });
 }
 

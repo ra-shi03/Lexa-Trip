@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Search, Download, BedDouble, Bus, Plane } from 'lucide-react';
+import { Download, BedDouble, Bus, Plane } from 'lucide-react';
 import { api } from '../../lib/api';
-import { useApi, useDebounce } from '../../hooks/useApi';
+import { useApi } from '../../hooks/useApi';
 import { useToast } from '../../context/ToastContext';
-import { DataTable, Tabs, StatusBadge, Drawer, Button, Badge, ConfirmDialog, Select } from '../ui';
+import { DataTable, Tabs, StatusBadge, Drawer, Button, Badge, ConfirmDialog, EmptyState } from '../ui';
+import { useSearchParams } from 'react-router';
+import { useFilters, SearchField, FilterSelect, DateRange, ClearFilters } from './Filters';
 import { PriceBreakdown } from '../stay/StayComponents';
 import { money, dateLabel, dateTime, titleCase, plural, toCsvDownload } from './panelUtils';
 
@@ -11,30 +13,58 @@ const TYPE_ICON = { hotel: BedDouble, bus: Bus, flight: Plane };
 
 /** Bookings list + detail drawer with lifecycle actions. Vendor: hotel only; admin: all services. */
 export function BookingsPanel({ apiBase, admin, showRevenue }) {
-  const [tab, setTab] = useState('all');
-  const [type, setType] = useState('');
-  const [q, setQ] = useState('');
-  const [page, setPage] = useState(1);
-  const dq = useDebounce(q);
-  const { data, meta, loading, error, reload } = useApi(() => api.get(`${apiBase}/bookings`, { tab: tab === 'all' ? undefined : tab, type: type || undefined, q: dq || undefined, page }), [tab, type, dq, page]);
+  const [sp] = useSearchParams();
+  const empty = { q: '', tab: sp.get('tab') || '', type: '', paymentStatus: '', dateField: '', from: '', to: '' };
+  const f = useFilters(empty);
+  const v = f.values;
+  const toast = useToast();
+  const { data, meta, loading, error, reload } = useApi(() => api.get(`${apiBase}/bookings`, f.params), f.deps);
   const [open, setOpen] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const filtered = Boolean(v.q || v.type || v.paymentStatus || v.dateField || v.from || v.to);
+
+  // Export everything that matches the filters, not just the page on screen
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const all = [];
+      for (let page = 1; page <= 25; page += 1) {
+        const res = await api.get(`${apiBase}/bookings`, { ...f.params, page, limit: 200 });
+        all.push(...res.data);
+        if (page >= res.meta.pages) break;
+      }
+      toCsvDownload(all, 'bookings.csv', showRevenue);
+    } catch (e) { toast.error(e); } finally { setExporting(false); }
+  };
+
+  const tabs = [['', 'All', 'all'], ['approval', 'Needs approval'], ['upcoming', 'Upcoming'], ['active', 'In-house'], ['completed', 'Completed'], ['cancelled', 'Cancelled'], ['failed', 'Failed / expired']]
+    .map(([value, label, key]) => ({ value, label, count: meta?.counts?.[key || value] }));
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[240px] flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><input className="input pl-9" placeholder="Booking ID, guest name, phone, PNR" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></div>
-        {admin && <Select className="w-44" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} placeholder="All services" options={[{ value: 'hotel', label: 'Hotels' }, { value: 'bus', label: 'Bus' }, { value: 'flight', label: 'Flights' }]} />}
-        <Button variant="outline" icon={Download} onClick={() => toCsvDownload(data || [], 'bookings.csv', showRevenue)}>Export</Button>
+      <div className="card card-pad mb-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchField value={v.q} onChange={(q) => f.set({ q })} busy={f.typing} placeholder={admin ? 'Booking ID, guest, phone, email, property, PNR' : 'Booking ID, guest, phone, email, property'} />
+          <ClearFilters show={filtered} onClear={() => f.set({ ...empty, tab: v.tab })} />
+          <Button variant="outline" icon={Download} loading={exporting} disabled={!meta?.total} onClick={exportCsv}>Export{meta?.total ? ` ${meta.total}` : ''}</Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+          {admin && <FilterSelect label="Service" all="All services" value={v.type} onChange={(type) => f.set({ type })} options={[{ value: 'hotel', label: 'Hotels' }, { value: 'bus', label: 'Bus' }, { value: 'flight', label: 'Flights' }]} />}
+          <FilterSelect label="Payment" all="Any payment" value={v.paymentStatus} onChange={(paymentStatus) => f.set({ paymentStatus })} options={['paid', 'pending', 'failed', 'refunded', 'partially_refunded'].map((x) => ({ value: x, label: titleCase(x) }))} />
+          <FilterSelect label="Filter dates by" all="Booking date" value={v.dateField} onChange={(dateField) => f.set({ dateField })} options={[{ value: 'checkin', label: admin ? 'Check-in / departure' : 'Check-in date' }, { value: 'checkout', label: 'Check-out date' }]} />
+          <DateRange from={v.from} to={v.to} ahead={Boolean(v.dateField)} onChange={(range) => f.set(range)} />
+        </div>
       </div>
-      <Tabs className="mb-4" value={tab} onChange={(v) => { setTab(v); setPage(1); }} tabs={[{ value: 'all', label: 'All' }, { value: 'upcoming', label: 'Upcoming' }, { value: 'active', label: 'In-house' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }]} />
+      <Tabs className="mb-4" value={v.tab} onChange={(tab) => f.set({ tab })} tabs={tabs} />
       <DataTable
         rows={data}
         loading={loading}
         error={error}
         onRetry={reload}
         meta={meta}
-        onPage={setPage}
+        onPage={f.setPage}
         onRowClick={setOpen}
+        empty={<EmptyState title={filtered || v.tab ? 'No bookings match these filters' : 'No bookings yet'} />}
         columns={[
           { key: 'bookingCode', label: 'Booking', render: (b) => { const I = TYPE_ICON[b.type]; return <div className="flex items-center gap-2.5"><I size={16} className="text-muted" /><div><p className="font-semibold">{b.bookingCode}</p><p className="text-xs text-muted">{dateTime(b.createdAt)} · {titleCase(b.source || '')}</p></div></div>; } },
           { key: 'guest', label: 'Guest', render: (b) => <div><p className="font-medium">{b.primaryGuest?.name || b.user?.name}</p><p className="text-xs text-muted">{b.primaryGuest?.phone}</p></div> },

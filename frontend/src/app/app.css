@@ -52,3 +52,9 @@ body { overscroll-behavior-y: none; }
 
 .offers-flow { scroll-snap-type: none; }
 .offers-flow > * { scroll-snap-align: none; }
+
+/* App home behaves like a native screen: nothing can be selected, copied, long-press saved or dragged.
+   :has() on body also covers the header and tab bar. Fields stay editable; coupon "copy" buttons still work. */
+body:has(.app-home) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body:has(.app-home) :is(input, textarea) { -webkit-user-select: text; user-select: text; }
+body:has(.app-home) :is(img, a) { -webkit-user-drag: none; }

@@ -179,7 +179,7 @@ export default function Login() {
                 {isSignup && <Field id="name" label="Full name" error={fieldErr.name}><input id="name" className="input h-12 rounded-full px-5" autoComplete="name" placeholder="As on your ID" value={form.name} onChange={set('name')} aria-invalid={Boolean(fieldErr.name)} autoFocus /></Field>}
                 <Field id="phone" label="Mobile number" error={fieldErr.phone}>
                   <div className="flex gap-2">
-                    <span className="input flex h-12 w-[88px] flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 font-bold">🇮🇳 +91</span>
+                    <span className="input flex h-12 w-[88px] flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 font-bold">+91</span>
                     <div className="relative flex-1">
                       <input id="phone" className="input h-12 rounded-full px-5 pr-10" inputMode="numeric" autoComplete="tel-national" placeholder="10-digit mobile number" value={form.phone} onChange={set('phone')} aria-invalid={Boolean(fieldErr.phone)} autoFocus={!isSignup} />
                       {phoneOk && <Check size={18} className="pop-in absolute right-3 top-1/2 -translate-y-1/2 text-success" />}

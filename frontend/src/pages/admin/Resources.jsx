@@ -7,6 +7,8 @@ import { money, dateLabel, titleCase } from '../../lib/format';
 
 const active = (r) => <StatusBadge status={r.isActive ? 'active' : 'closed'} />;
 
+export { VendorRequestsPage } from '../../components/panel/VendorRequests';
+
 export const Categories = () => (
   <ResourcePage
     title="Accommodation categories"
@@ -40,6 +42,7 @@ export const Amenities = () => (
     ]}
     fields={[
       { name: 'name', label: 'Name', required: true }, { name: 'icon', label: 'Icon', type: 'icon' },
+      { name: 'scope', label: 'Offered for', type: 'select', options: [{ value: 'all', label: 'Property and rooms' }, { value: 'property', label: 'Property only' }, { value: 'room', label: 'Rooms only' }] },
       { name: 'group', label: 'Group', type: 'select', options: ['general', 'room', 'food', 'wellness', 'business', 'family', 'accessibility', 'safety'] },
       { name: 'slug', label: 'Slug' }, { name: 'isFilterable', label: 'Show as search filter', type: 'toggle' }, { name: 'isActive', label: 'Active', type: 'toggle' },
     ]}

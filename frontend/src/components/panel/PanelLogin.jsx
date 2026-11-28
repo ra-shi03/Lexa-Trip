@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { Link } from 'react-router';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, LayoutDashboard, SlidersHorizontal, AlertCircle, TriangleAlert, Loader2, Check } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ShieldCheck, LayoutDashboard, SlidersHorizontal, AlertCircle, TriangleAlert, Loader2, Check, ArrowLeft } from 'lucide-react';
 import { Logo } from '../layout/Logo';
 import { useSettings } from '../../context/SettingsContext';
 import { cx, platformParts } from '../../lib/format';
@@ -112,7 +112,7 @@ export function PanelLogin({ title = 'Admin sign in', suffix = 'Admin', note, on
             {busy ? <><Loader2 size={18} className="animate-spin" />Signing in…</> : <>Sign in <ArrowRight size={18} className="transition group-hover:translate-x-1" /></>}
           </button>
           <p className="text-center text-xs text-muted">{note || 'Master admin & sub-admins sign in here.'}</p>
-          <p className="text-center text-xs"><Link to="/" className="font-semibold text-muted hover:text-primary">← Back to website</Link></p>
+          <p className="text-center text-xs"><Link to="/" className="inline-flex items-center gap-1 font-semibold text-muted hover:text-primary"><ArrowLeft size={13} aria-hidden />Back to website</Link></p>
         </form>
       </main>
     </div>

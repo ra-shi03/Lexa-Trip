@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Save, Send, Plus, Trash2, Pencil, ArrowLeft, Plug, RefreshCw } from 'lucide-react';
+import { Save, Send, Plus, Trash2, Pencil, ArrowLeft, Plug, RefreshCw, CheckCircle2, Circle } from 'lucide-react';
 import { ImageUploader } from './ImageUploader';
+import { RequestBox, OptionPicker } from './VendorRequests';
 import { Button, Input, Textarea, Select, Tabs, TagInput, Toggle, Checkbox, Modal, StatusBadge, PageLoader, DataTable, Badge, Alert, ConfirmDialog } from '../ui';
 import { api } from '../../lib/api';
 import { useApi } from '../../hooks/useApi';
@@ -10,7 +11,7 @@ import { htmlToText, textToHtml } from '../../lib/plainText';
 import { money, dateLabel, dateTime, titleCase } from '../../lib/format';
 
 const EMPTY = {
-  name: '', category: '', starRating: 0, shortDescription: '', description: '', _descText: '',
+  name: '', category: '', shortDescription: '', description: '', _descText: '',
   address: { line1: '', area: '', landmark: '', pincode: '', city: '', state: '' }, geo: { lat: '', lng: '' },
   images: [], amenities: [], checkInTime: '14:00', checkOutTime: '11:00', houseRules: [], childPolicy: '', petPolicy: '',
   cancellationPolicy: { type: 'free', freeCancellationHours: 48, penaltyPercent: 0, text: '' }, contact: { phone: '', email: '' }, tags: [],
@@ -28,7 +29,12 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
   const [p, setP] = useState(isNew ? EMPTY : null);
   const [busy, setBusy] = useState(false);
   const { data: cats } = useApi(() => api.get('/public/categories'), []);
-  const { data: amenities } = useApi(() => api.get('/public/amenities'), []);
+  // approved options (tags, house rules, amenities) + the vendor's own pending / rejected requests
+  const { data: options, reload: reloadOptions } = useApi(() => api.get(`${apiBase}/options`), [apiBase, tab]);
+  const { data: requests, reload: reloadRequests } = useApi(() => api.get('/vendor/requests'), [tab], { enabled: !admin });
+  const amenities = (options?.amenities || []).filter((a) => a.scope !== 'room');
+  const roomFeatures = (options?.amenities || []).filter((a) => a.scope !== 'property');
+  const sent = () => { reloadRequests(); reloadOptions(); };
   const { data: states } = useApi(() => api.get('/public/states'), []);
   const { data: cities } = useApi(() => api.get('/public/cities', p?.address?.state ? { state: p.address.state } : {}), [p?.address?.state]);
   const { data: vendors } = useApi(() => api.get('/admin/vendors', { limit: 200, status: 'approved' }), [], { enabled: Boolean(admin && isNew) });
@@ -38,6 +44,8 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
     setP({ ...EMPTY, ...data, _descText: htmlToText(data.description), address: { ...EMPTY.address, ...data.address }, geo: data.geo || { lat: '', lng: '' }, cancellationPolicy: { ...EMPTY.cancellationPolicy, ...data.cancellationPolicy }, contact: { ...EMPTY.contact, ...data.contact } });
   };
   useEffect(() => { if (!isNew) load().catch((e) => toast.error(e)); /* eslint-disable-next-line */ }, [id]);
+  // the submit checklist needs to know about rooms added in the Rooms tab
+  const refreshRooms = () => api.get(`${apiBase}/properties/${id}`).then(({ data }) => setP((s) => ({ ...s, rooms: data.rooms }))).catch(() => {});
   if (!p) return <PageLoader />;
 
   const set = (k, v) => setP((s) => ({ ...s, [k]: v }));
@@ -53,7 +61,7 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
       delete body._descText;
       if (isNew) {
         const { data } = await api.post(`${apiBase}/properties`, body);
-        toast.success('Property created — now add rooms');
+        toast.success(admin ? 'Property created — now add rooms' : 'Saved as draft — add photos and a room, then submit it for approval');
         navigate(`${listPath}/${data._id}`, { replace: true });
       } else {
         await api.put(`${apiBase}/properties/${id}`, body);
@@ -79,10 +87,10 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
           {p.statusNote && <p className="mt-1 text-sm text-danger">{p.statusNote}</p>}
         </div>
         <div className="flex gap-2">
-          {!isNew && !admin && ['draft', 'rejected'].includes(p.status) && <Button variant="outline" icon={Send} onClick={submit}>Submit for approval</Button>}
           {!['rooms', 'pricing', 'channel'].includes(tab) && <Button icon={Save} loading={busy} onClick={save}>{isNew ? 'Create property' : 'Save changes'}</Button>}
         </div>
       </div>
+      {!isNew && <ApprovalNotice property={p} admin={admin} onSubmit={submit} />}
       <Tabs tabs={tabs} value={tab} onChange={setTab} className="mb-6" />
 
       {tab === 'details' && (
@@ -92,7 +100,6 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
             {admin && isNew && <Select label="Vendor (owner)" required placeholder="Select vendor" value={p.vendor || ''} onChange={(e) => set('vendor', e.target.value)} options={(vendors || []).map((v) => ({ value: v._id, label: `${v.businessName} (${v.email})` }))} className="md:col-span-2" />}
             <Input label="Property name" required value={p.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Pink City Courtyard Hotel" className="md:col-span-2" />
             <Select label="Property type" required placeholder="Select type" value={p.category?._id || p.category} onChange={(e) => set('category', e.target.value)} options={(cats || []).filter((c) => c.kind !== 'deals').map((c) => ({ value: c._id, label: c.name }))} hint="Hotel, villa, resort, homestay…" />
-            <Select label="Star rating" value={p.starRating} onChange={(e) => set('starRating', Number(e.target.value))} options={[0, 1, 2, 3, 4, 5].map((n) => ({ value: n, label: n ? `${'★'.repeat(n)}  ${n} star` : 'Not rated' }))} />
           </section>
 
           <section className="card card-pad space-y-4">
@@ -102,7 +109,16 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
           </section>
 
           <section className="card card-pad">
-            <TagInput label="Search tags" value={p.tags || []} onChange={(v) => set('tags', v)} placeholder="Type a tag and press Enter" hint="Words guests might search for. Helps your property appear in more searches." suggestions={['Lake view', 'Honeymoon', 'Family friendly', 'Near airport', 'Pool', 'Budget', 'Luxury', 'Heritage', 'Pet friendly', 'Business travel']} />
+            {admin
+              ? <TagInput label="Search tags" value={p.tags || []} onChange={(v) => set('tags', v)} placeholder="Type and press Enter" suggestions={options?.tags || []} />
+              : (
+                <div >
+                  <div className="space-y-3">
+                    <OptionPicker label="Search tags" hint="Words guests might search for. Tap to select, then save." value={p.tags || []} options={options?.tags || []} onChange={(v) => set('tags', v)} />
+                    <RequestBox kind="tag" propertyId={isNew ? undefined : id} requests={requests || []} onSent={sent} placeholder="e.g. Sea view" />
+                  </div>
+                </div>
+              )}
           </section>
         </div>
       )}
@@ -115,7 +131,6 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
           <Input label="Area / locality" value={p.address.area} onChange={(e) => setIn('address', 'area', e.target.value)} />
           <Input label="Landmark" value={p.address.landmark} onChange={(e) => setIn('address', 'landmark', e.target.value)} />
           <Input label="Pincode" value={p.address.pincode} onChange={(e) => setIn('address', 'pincode', e.target.value)} />
-          <div className="grid grid-cols-2 gap-3"><Input label="Latitude" value={p.geo?.lat ?? ''} onChange={(e) => setIn('geo', 'lat', e.target.value)} /><Input label="Longitude" value={p.geo?.lng ?? ''} onChange={(e) => setIn('geo', 'lng', e.target.value)} /></div>
           <Input label="Reception phone" value={p.contact.phone} onChange={(e) => setIn('contact', 'phone', e.target.value)} />
           <Input label="Reservations email" value={p.contact.email} onChange={(e) => setIn('contact', 'email', e.target.value)} />
         </div>
@@ -126,11 +141,12 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
       {tab === 'amenities' && (
         <div className="card card-pad">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {(amenities || []).map((a) => {
+            {amenities.map((a) => {
               const ids = p.amenities.map((x) => x._id || x);
               return <Checkbox key={a._id} label={a.name} checked={ids.includes(a._id)} onChange={(on) => set('amenities', on ? [...ids, a._id] : ids.filter((x) => x !== a._id))} />;
             })}
           </div>
+          {!admin && <div className="mt-5"><RequestBox kind="amenity" propertyId={isNew ? undefined : id} requests={requests || []} onSent={sent} placeholder="e.g. EV charging" /></div>}
         </div>
       )}
 
@@ -142,13 +158,23 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
           <Input label="Free cancellation until (hours before check-in)" type="number" min={0} value={p.cancellationPolicy.freeCancellationHours} onChange={(e) => setIn('cancellationPolicy', 'freeCancellationHours', Number(e.target.value))} />
           {p.cancellationPolicy.type === 'partial' && <Input label="Penalty % after free window" type="number" min={0} max={100} value={p.cancellationPolicy.penaltyPercent} onChange={(e) => setIn('cancellationPolicy', 'penaltyPercent', Number(e.target.value))} />}
           <Textarea label="Policy text shown to guests" rows={2} value={p.cancellationPolicy.text} onChange={(e) => setIn('cancellationPolicy', 'text', e.target.value)} className="md:col-span-2" />
-          <TagInput label="House rules" value={p.houseRules} onChange={(v) => set('houseRules', v)} placeholder="Type a rule and press Enter" hint="Shown to guests before they book" suggestions={['No smoking', 'No loud music after 10 PM', 'Valid photo ID required at check-in', 'Outside visitors not allowed', 'Unmarried couples allowed']} className="md:col-span-2" />
+          {admin
+            ? <TagInput label="House rules" className="md:col-span-2" value={p.houseRules || []} onChange={(v) => set('houseRules', v)} placeholder="Type and press Enter" suggestions={options?.houseRules || []} />
+            : (
+              <div className="md:col-span-2" >
+                <div className="space-y-3">
+                  <OptionPicker label="House rules" hint="Shown to guests before they book. Tap to select, then save." value={p.houseRules || []} options={options?.houseRules || []} onChange={(v) => set('houseRules', v)} />
+                  <RequestBox kind="house_rule" propertyId={isNew ? undefined : id} requests={requests || []} onSent={sent} placeholder="e.g. No parties" />
+                </div>
+              </div>
+            )}
           <Textarea label="Child policy" rows={2} value={p.childPolicy} onChange={(e) => set('childPolicy', e.target.value)} />
           <Textarea label="Pet policy" rows={2} value={p.petPolicy} onChange={(e) => set('petPolicy', e.target.value)} />
         </div>
       )}
 
-      {tab === 'rooms' && <RoomsManager apiBase={apiBase} propertyId={id} amenities={amenities} />}
+      {tab === 'rooms' && <RoomsManager onChanged={refreshRooms} apiBase={apiBase} propertyId={id} amenities={roomFeatures}
+        requestBox={admin ? null : <RequestBox kind="room_feature" propertyId={id} requests={requests || []} onSent={sent} placeholder="e.g. Bathtub" />} />}
       {tab === 'pricing' && <PricingRules apiBase={apiBase} propertyId={id} />}
       {tab === 'channel' && <ChannelManager apiBase={apiBase} propertyId={id} />}
     </div>
@@ -157,7 +183,7 @@ export function PropertyEditor({ apiBase, id, listPath, admin }) {
 
 const ROOM_EMPTY = { name: '', description: '', bedType: '', sizeSqft: '', view: '', baseOccupancy: 2, maxAdults: 2, maxChildren: 1, maxOccupancy: 3, totalRooms: 1, basePrice: '', weekendPrice: '', extraAdultCharge: 0, extraChildCharge: 0, images: [], ratePlans: [{ name: 'Room only · Free cancellation', code: 'EP-FLEX', mealPlan: 'EP', refundable: true, priceAdjustment: 0, isActive: true }], isActive: true };
 
-function RoomsManager({ apiBase, propertyId, amenities = [] }) {
+function RoomsManager({ onChanged, apiBase, propertyId, amenities = [], requestBox }) {
   const { data, reload } = useApi(() => api.get(`${apiBase}/properties/${propertyId}/rooms`), [propertyId]);
   const [edit, setEdit] = useState(null);
   const [del, setDel] = useState(null);
@@ -166,7 +192,7 @@ function RoomsManager({ apiBase, propertyId, amenities = [] }) {
     try {
       const body = { ...edit, amenities: (edit.amenities || []).map((a) => a._id || a) };
       if (edit._id) await api.put(`${apiBase}/properties/${propertyId}/rooms/${edit._id}`, body); else await api.post(`${apiBase}/properties/${propertyId}/rooms`, body);
-      toast.success('Room saved'); setEdit(null); reload();
+      toast.success('Room saved'); setEdit(null); reload(); onChanged?.();
     } catch (e) { toast.error(e); }
   };
   const setR = (k, v) => setEdit((s) => ({ ...s, [k]: v }));
@@ -225,13 +251,14 @@ function RoomsManager({ apiBase, propertyId, amenities = [] }) {
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
                 {amenities.map((a) => { const ids = (edit.amenities || []).map((x) => x._id || x); return <Checkbox key={a._id} label={a.name} checked={ids.includes(a._id)} onChange={(on) => setR('amenities', on ? [...ids, a._id] : ids.filter((x) => x !== a._id))} />; })}
               </div>
+              {requestBox && <div className="mt-3">{requestBox}</div>}
             </div>
             <ImageUploader value={edit.images || []} onChange={(v) => setR('images', v)} uploadUrl={`${apiBase}/uploads/images`} max={10} />
             <Toggle label="Room type active" checked={edit.isActive} onChange={(v) => setR('isActive', v)} />
           </div>
         )}
       </Modal>
-      <ConfirmDialog open={Boolean(del)} onClose={() => setDel(null)} title={`Delete ${del?.name}?`} message="Inventory for this room will be removed. Rooms with upcoming bookings cannot be deleted." onConfirm={async () => { try { await api.del(`${apiBase}/properties/${propertyId}/rooms/${del._id}`); setDel(null); reload(); } catch (e) { toast.error(e); } }} />
+      <ConfirmDialog open={Boolean(del)} onClose={() => setDel(null)} title={`Delete ${del?.name}?`} message="Inventory for this room will be removed. Rooms with upcoming bookings cannot be deleted." onConfirm={async () => { try { await api.del(`${apiBase}/properties/${propertyId}/rooms/${del._id}`); setDel(null); reload(); onChanged?.(); } catch (e) { toast.error(e); } }} />
     </div>
   );
 }
@@ -311,5 +338,32 @@ function ChannelManager({ apiBase, propertyId }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Tells the owner (and admins) why a listing isn't visible to guests yet and what happens next */
+function ApprovalNotice({ property: p, admin, onSubmit }) {
+  if (p.status === 'approved') return null;
+  const hasPhoto = p.images?.length > 0;
+  const hasRoom = p.rooms?.some((r) => r.isActive !== false);
+  const canSubmit = !admin && ['draft', 'rejected'].includes(p.status);
+  const [tone, title, text] = {
+    draft: ['warning', 'Not submitted yet — guests can’t see this property', admin ? 'The vendor hasn’t sent it for approval yet.' : 'Complete the steps below and submit it. It appears in the app only after the admin approves it.'],
+    pending: ['info', 'Waiting for approval', admin ? 'Review the details, then approve or reject it from the Properties list.' : 'The admin is reviewing it. It appears in the app as soon as it is approved.'],
+    rejected: ['danger', 'Rejected — not visible to guests', admin ? 'The vendor can fix it and submit again.' : 'Fix the issue and submit it again.'],
+    suspended: ['danger', 'Suspended — not visible to guests', admin ? 'Restore it from the Properties list.' : 'Contact the LexaTrip team.'],
+  }[p.status] || [];
+  if (!title) return null;
+  const step = (done, label) => <li className="flex items-center gap-1.5">{done ? <CheckCircle2 size={15} className="text-success" /> : <Circle size={15} className="text-muted" />}<span className={done ? 'text-muted line-through' : 'font-semibold'}>{label}</span></li>;
+  return (
+    <Alert tone={tone} title={title} className="mb-4">
+      <p>{text}</p>
+      {canSubmit && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <ul className="flex flex-wrap gap-x-5 gap-y-1">{step(hasPhoto, 'Add at least one photo and save')}{step(hasRoom, 'Add at least one room')}</ul>
+          <Button size="sm" icon={Send} disabled={!hasPhoto || !hasRoom} onClick={onSubmit}>Submit for approval</Button>
+        </div>
+      )}
+    </Alert>
   );
 }

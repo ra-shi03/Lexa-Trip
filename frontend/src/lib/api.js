@@ -84,7 +84,9 @@ export function refreshSession(role, stale = tokens.get(role)) {
 /** Revokes this device's refresh token on the server (best effort) and drops the local access token. */
 export async function endSession(role) {
   tokens.clear(role); // first, so a quick re-login can't be wiped by this call finishing late
-  try { await axios.post(`${API_BASE}/auth/${role}/logout`, {}, { withCredentials: true, timeout: 8000, headers: { 'X-Client': 'web' } }); } catch { /* offline: the cookie still expires */ }
+  const pushToken = localStorage.getItem(`lt_push_${role}`); // stop pushes to this device
+  localStorage.removeItem(`lt_push_${role}`);
+  try { await axios.post(`${API_BASE}/auth/${role}/logout`, pushToken ? { pushToken } : {}, { withCredentials: true, timeout: 8000, headers: { 'X-Client': 'web' } }); } catch { /* offline: the cookie still expires */ }
 }
 
 const listeners = new Set();
@@ -164,6 +166,8 @@ export const api = {
   put: (url, body, config) => call('put', url, body, config),
   patch: (url, body, config) => call('patch', url, body, config),
   del: (url, config) => call('delete', url, undefined, config),
+  /** A private file (needs the session token, so it can't be a plain <img src>) */
+  blob: (url) => call('get', url, undefined, { responseType: 'blob' }),
   upload: (url, formData) => call('post', url, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   /** Downloads a CSV/file endpoint with auth and saves it */
   download: async (url, params, filename) => {

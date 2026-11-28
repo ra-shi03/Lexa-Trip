@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUp, ArrowDown, Save, RotateCcw, CheckCircle2, XCircle, Search, BedDouble, Sparkles } from 'lucide-react';
+import { ArrowUp, ArrowDown, Save, RotateCcw, CheckCircle2, XCircle, Search, BedDouble, Sparkles, Star } from 'lucide-react';
 import { PageHeader, Button, Input, Select, Toggle, ColorField, PageLoader, Alert, Badge } from '../../../components/ui';
 import { SingleImage } from '../../../components/panel/ImageUploader';
 import { Repeater } from '../../../components/editor/Repeater';
@@ -101,7 +101,7 @@ export function AppearanceSettings() {
               <h3 className="text-2xl font-extrabold">Where to next<span className="text-primary">?</span></h3>
               <div className="search-bar flex-col"><div className="search-cell"><label>Where</label><span className="text-sm font-bold">Udaipur</span></div><button className="search-go h-11 w-full"><Search size={18} /></button></div>
               <div className="flex gap-2"><span className="chip active">Stays</span><span className="chip">Buses</span></div>
-              <div className="card flex gap-3 p-3"><span className="grid h-14 w-16 place-items-center rounded-lg bg-primary-soft text-primary"><BedDouble /></span><div className="flex-1"><p className="text-sm font-bold">Lakeside Haveli</p><p className="text-xs text-muted">Udaipur · 4★</p><p className="text-sm font-extrabold">₹4,200 <span className="text-xs font-normal text-muted">/night</span></p></div></div>
+              <div className="card flex gap-3 p-3"><span className="grid h-14 w-16 place-items-center rounded-lg bg-primary-soft text-primary"><BedDouble /></span><div className="flex-1"><p className="text-sm font-bold">Lakeside Haveli</p><p className="text-xs text-muted">Udaipur · 4<Star size={10} fill="currentColor" strokeWidth={0} className="ml-0.5 inline align-[-1px]" aria-label="star" /></p><p className="text-sm font-extrabold">₹4,200 <span className="text-xs font-normal text-muted">/night</span></p></div></div>
               <button className="btn btn-primary btn-block">View deal</button>
               <div className="flex items-center gap-2 rounded-brand bg-secondary p-3 text-sm font-semibold text-white"><Sparkles size={16} className="text-accent" />Plan with Lexa AI</div>
             </div>
@@ -169,6 +169,8 @@ export function IntegrationSettings() {
             <Row name="Bus API" ok={!st.bus.sandbox} detail={st.bus.provider} />
             <Row name="Flight API" ok={!st.flight.sandbox} detail={st.flight.provider} />
             <Row name="Channel manager" ok={!st.channelManager.sandbox} detail={st.channelManager.provider} />
+            <Row name="Push notifications (Firebase)" ok={st.push.configured} detail={st.push.configured ? 'connected' : 'not configured'} />
+            <Row name="Cloudinary" ok={st.storage.configured} detail={st.storage.configured ? 'keys set' : 'not configured'} />
             <Row name="Google Search Console" ok={st.searchConsole.configured} detail={st.searchConsole.configured ? 'service account' : 'not configured'} />
           </div>
           <Alert className="mt-4">Sandbox providers let you test complete flows. Live APIs (Razorpay, MSG91, STAAH/AxisRooms, bus & flight aggregators) are enabled by adding credentials to <code>backend/.env</code> once the client’s accounts are approved.</Alert>

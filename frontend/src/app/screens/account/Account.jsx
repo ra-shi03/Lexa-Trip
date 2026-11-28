@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router';
-import { Briefcase, User, User as UserIcon, Users, Heart, Bell, LifeBuoy, LogOut, Plus, Trash2, Pencil, BedDouble, Bus, Plane, Send, ChevronRight, Camera, Loader2, Smartphone, BadgeCheck, CheckCircle2, Cake, Mail, Lock } from 'lucide-react';
+import { Briefcase, User, User as UserIcon, Users, Heart, Bell, LifeBuoy, LogOut, Plus, Trash2, Pencil, BedDouble, Bus, Plane, Send, ChevronRight, Camera, Loader2, Smartphone, BadgeCheck, CheckCircle2, Cake, Mail, Lock, Star } from 'lucide-react';
+import { PushToggle } from '@/components/panel/PushToggle';
 import { compressForUpload } from '@/lib/compressImage';
 import { Container } from '@/components/layout/UserLayout';
 import { PropertyCard } from '@/components/stay/StayComponents';
@@ -11,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useSettings } from '@/context/SettingsContext';
 import { useToast } from '@/context/ToastContext';
 import { TripCardSkeleton, ListSkeleton, ListRowSkeleton, PropertyCardSkeleton } from '../../Skeletons';
+import { StarRow } from '@/components/stay/Reviews';
 import { dateLabel, money, timeAgo, cx, titleCase, isoDate } from '@/lib/format';
 
 export function AccountLayout() {
@@ -152,7 +154,7 @@ export function Profile() {
         <div>
           <label className="field-label" htmlFor="pf-dob">Date of birth</label>
           <div className="relative"><Cake size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" /><input id="pf-dob" type="date" max={isoDate(new Date())} className="input h-12 rounded-full pl-11" value={form.dob} onChange={(e) => set('dob', e.target.value)} aria-invalid={Boolean(errors.dob)} /></div>
-          {errors.dob ? <p className="field-error animate-fade-up">{errors.dob}</p> : age !== null && <p className="field-hint">🎂 You’re {age} years old</p>}
+          {errors.dob ? <p className="field-error animate-fade-up">{errors.dob}</p> : age !== null && <p className="field-hint flex items-center gap-1.5"><Cake size={13} aria-hidden />You’re {age} years old</p>}
         </div>
         <div>
           <label className="field-label" htmlFor="pf-email">Email</label>
@@ -192,6 +194,7 @@ export function Profile() {
 
 const TYPE_ICON = { hotel: BedDouble, bus: Bus, flight: Plane };
 export function Trips() {
+  const { feature } = useSettings();
   const [tab, setTab] = useState('upcoming');
   const { data, loading, error, reload } = useApi(() => api.get('/me/bookings', { tab }), [tab]);
   const TABS = [{ value: 'upcoming', label: 'Upcoming' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }];
@@ -213,7 +216,8 @@ export function Trips() {
         {data?.map((b) => {
           const Icon = TYPE_ICON[b.type];
           return (
-            <Link key={b._id} to={`/booking/${b._id}`} className="card block overflow-hidden transition active:scale-[.99]">
+            <div key={b._id} className="card overflow-hidden">
+            <Link to={`/booking/${b._id}`} className="block transition active:scale-[.99]">
               <div className="flex items-center gap-3 p-4">
                 <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-primary-soft text-primary"><Icon size={22} /></span>
                 <div className="min-w-0 flex-1">
@@ -227,6 +231,11 @@ export function Trips() {
                 <span className="flex items-center gap-3"><StatusBadge status={b.status} /><span className="text-base font-extrabold">{money(b.pricing?.totalAmount)}</span></span>
               </div>
             </Link>
+              {b.canReview && feature('reviews') && (
+                <Link to={`/booking/${b._id}?review=1`} className="flex items-center justify-center gap-2 border-t border-line py-3 text-sm font-bold text-primary"><Star size={16} />Rate your stay</Link>
+              )}
+              {b.review && <p className="flex items-center justify-center gap-2 border-t border-line py-3 text-sm font-semibold text-muted">You rated <StarRow value={b.review.rating} /></p>}
+            </div>
           );
         })}
       </div>
@@ -289,6 +298,7 @@ export function Notifications() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between"><h1 className="text-xl font-extrabold">Notifications</h1><Button size="sm" variant="outline" onClick={async () => { await api.post('/me/notifications/read'); reload(); }}>Mark all read</Button></div>
+      <PushToggle role="user" onMessage={reload} />
       <div className="card divide-y divide-line">
         {loading && Array.from({ length: 4 }).map((_, i) => <ListRowSkeleton key={i} />)}
         {!loading && !data?.length && <EmptyState icon={Bell} title="You’re all caught up" />}

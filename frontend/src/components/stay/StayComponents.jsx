@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Heart, MapPin, Check, Wifi, Waves, Flower2, Coffee, Car, Dumbbell, Utensils, Snowflake, Bell, PawPrint, Plane, Wine, Mountain, Umbrella, Baby, Zap, Clock, Accessibility, Cctv, ChefHat, Building2, Home, Palmtree, BedDouble, House, HeartHandshake, Building, Bus, Sparkles, Timer, Flame, TrainFront, CarTaxiFront, BadgePercent, Ticket, Gift, Tag, Tent, Ship, Compass, Map as MapIcon, Headphones, Hotel, Luggage, Camera } from 'lucide-react';
-import { Img, Stars, RatingPill, Badge, Checkbox } from '../ui';
+import { Heart, MapPin, Check, Wifi, Waves, Flower2, Coffee, Car, Dumbbell, Utensils, Snowflake, Bell, PawPrint, Plane, Wine, Mountain, Umbrella, Baby, Zap, Clock, Accessibility, Cctv, ChefHat, Building2, Home, Palmtree, BedDouble, House, HeartHandshake, Building, Bus, Sparkles, Timer, Flame, TrainFront, CarTaxiFront, BadgePercent, Ticket, Gift, Tag, Tent, Ship, Compass, Map as MapIcon, Headphones, Hotel, Luggage, Camera, Star } from 'lucide-react';
+import { Img, RatingPill, Badge, Checkbox } from '../ui';
 import { money, cx, plural } from '../../lib/format';
 import { dealRibbon, dealEnds, dealLabel } from '../../lib/deals';
 
@@ -35,7 +35,6 @@ export function PropertyRow({ p, query, saved, onToggleSave }) {
       <div className="flex min-w-0 flex-col gap-2 p-4 sm:p-5">
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted">
           <span>{p.category?.name}</span>
-          <Stars value={p.starRating} />
         </div>
         <Link to={`/stay/${p.slug}${qs}`} className="text-lg font-extrabold leading-snug text-secondary hover:text-primary">{p.name}</Link>
         <p className="flex items-center gap-1 text-sm text-muted"><MapPin size={14} />{[p.area, p.city?.name].filter(Boolean).join(', ')}</p>
@@ -80,7 +79,7 @@ export function PropertyCard({ p }) {
       <div className="mt-3">
         <div className="flex items-center justify-between gap-2">
           <p className="truncate font-bold text-secondary">{p.name}</p>
-          {p.rating?.count > 0 && <span className="flex-none rounded-md bg-secondary px-1.5 text-xs font-bold text-white">{(p.rating.avg * 2).toFixed(1)}</span>}
+          {p.rating?.count > 0 && <span className="flex-none rounded-md bg-secondary px-1.5 text-xs font-bold text-white"><Star size={10} fill="currentColor" strokeWidth={0} className="mr-0.5 inline align-[-1px]" aria-label="Rating" />{p.rating.avg.toFixed(1)}</span>}
         </div>
         <p className="text-sm text-muted">{p.city?.name || p.address?.city?.name}{p.category?.name ? ` · ${p.category.name}` : ''}</p>
         <p className="mt-1 text-sm">{p.nightlyOriginal > p.nightlyFrom && <s className="mr-1 text-muted">{money(p.nightlyOriginal)}</s>}<b className="text-ink">{money(p.nightlyFrom ?? p.minPrice)}</b> <span className="text-muted">/ night</span></p>
@@ -147,12 +146,8 @@ export function FilterPanel({ params, set, categories = [], amenities = [], pric
 
       <FSection title="Guest rating" count={params.get('rating') ? 1 : 0}>
         <div className="flex flex-wrap gap-2">
-          {[['4.5', '9+ Exceptional'], ['4', '8+ Excellent'], ['3.5', '7+ Good']].map(([v, l]) => <FChip key={v} active={params.get('rating') === v} onClick={() => set('rating', params.get('rating') === v ? '' : v)}>{l}</FChip>)}
+          {RATINGS.map(([v, l]) => <FChip key={v} active={params.get('rating') === v} onClick={() => set('rating', params.get('rating') === v ? '' : v)}>{l}</FChip>)}
         </div>
-      </FSection>
-
-      <FSection title="Star rating" count={list('stars').length}>
-        <div className="flex flex-wrap gap-2">{['5', '4', '3', '2', '1'].map((s) => <FChip key={s} active={list('stars').includes(s)} onClick={() => toggle('stars', s)}>{s} ★</FChip>)}</div>
       </FSection>
 
       {amenities.length > 0 && (
@@ -164,6 +159,9 @@ export function FilterPanel({ params, set, categories = [], amenities = [], pric
     </div>
   );
 }
+
+/** "4.5 ★ & up" filter labels */
+const RATINGS = ['4.5', '4', '3.5'].map((v) => [v, <>{v}<Star size={12} fill="currentColor" strokeWidth={0} className="mx-0.5 inline align-[-1px]" aria-label="stars" /> & up</>]);
 
 const CheckRow = ({ checked, onChange, label, sub, type = 'checkbox' }) => (
   <label className={cx('flex min-h-[52px] cursor-pointer items-center gap-3 border-b border-line/70 px-1 py-2.5 transition active:bg-surface', checked && 'font-bold')}>
@@ -191,7 +189,6 @@ export function FilterSplit({ params, set, categories = [], amenities = [], pric
     { key: 'price', label: 'Price', count: priceOn ? 1 : 0 },
     categories.length > 0 && { key: 'type', label: 'Property type', count: list('category').length },
     { key: 'rating', label: 'Guest rating', count: params.get('rating') ? 1 : 0 },
-    { key: 'stars', label: 'Star rating', count: list('stars').length },
     amenities.length > 0 && { key: 'amen', label: 'Amenities', count: list('amenities').length },
   ].filter(Boolean);
   const [active, setActive] = useState('price');
@@ -222,8 +219,7 @@ export function FilterSplit({ params, set, categories = [], amenities = [], pric
           </>
         )}
         {cur.key === 'type' && categories.map((c) => <CheckRow key={c._id} checked={list('category').includes(c.slug)} onChange={() => toggle('category', c.slug)} label={c.name} />)}
-        {cur.key === 'rating' && [['4.5', '9+ Exceptional'], ['4', '8+ Excellent'], ['3.5', '7+ Good']].map(([v, l]) => <CheckRow key={v} type="radio" checked={params.get('rating') === v} onChange={() => set('rating', params.get('rating') === v ? '' : v)} label={l} />)}
-        {cur.key === 'stars' && ['5', '4', '3', '2', '1'].map((n) => <CheckRow key={n} checked={list('stars').includes(n)} onChange={() => toggle('stars', n)} label={`${n} star`} sub={'★'.repeat(Number(n))} />)}
+        {cur.key === 'rating' && RATINGS.map(([v, l]) => <CheckRow key={v} type="radio" checked={params.get('rating') === v} onChange={() => set('rating', params.get('rating') === v ? '' : v)} label={l} />)}
         {cur.key === 'amen' && amenities.map((a) => <CheckRow key={a._id} checked={list('amenities').includes(a.slug)} onChange={() => toggle('amenities', a.slug)} label={a.name} />)}
       </div>
     </div>

@@ -18,6 +18,8 @@ export const env = {
   trustProxy: Number(process.env.TRUST_PROXY ?? 1),
   clusterWorkers: Number(process.env.CLUSTER_WORKERS || 0), // 0 = single process, -1 = one per CPU
   /** Rate limiting — every number is tunable from .env (see .env.example) */
+  /** Google Places + Geocoding, called only from the server (services/places.service.js) */
+  googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || '',
   rateLimit: {
     enabled: process.env.RATE_LIMIT_ENABLED !== 'false',
     windowSec: num('RATE_LIMIT_WINDOW_SEC', 60),
@@ -30,6 +32,7 @@ export const env = {
     otpWindowMin: num('RATE_LIMIT_OTP_WINDOW_MIN', 15),
     uploadMax: num('RATE_LIMIT_UPLOAD_MAX', 60), // uploads per 10 min
     aiMax: num('RATE_LIMIT_AI_MAX', 20), // AI calls per window
+    placesMax: num('RATE_LIMIT_PLACES_MAX', 90), // address / city / pincode lookups per window (paid Google API)
     refreshMax: num('RATE_LIMIT_REFRESH_MAX', 60), // token refreshes per 15 min per IP
     liveMax: num('RATE_LIMIT_LIVE_MAX', 30), // live-update stream (re)connections per window per IP
   },
@@ -72,6 +75,16 @@ export const env = {
     geminiKey: process.env.GEMINI_API_KEY,
     geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   },
+
+  /** Used when Admin → Developer → Image setting is set to Cloudinary */
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+  },
+
+  /** Push notifications (Firebase Cloud Messaging): inline JSON, base64 JSON or a file path */
+  firebase: { serviceAccount: process.env.FIREBASE_SERVICE_ACCOUNT },
 
   busProvider: process.env.BUS_PROVIDER || 'mock',
   flightProvider: process.env.FLIGHT_PROVIDER || 'mock',

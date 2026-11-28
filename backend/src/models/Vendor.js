@@ -5,11 +5,13 @@ import { VENDOR_STATUS } from '../constants/enums.js';
 const docSchema = new mongoose.Schema(
   {
     type: { type: String, required: true }, // gst_certificate, pan, trade_licence, property_proof, id_proof …
-    url: { type: String, required: true },
+    /** Private storage key (services/privateStorage.service.js) — never a public link, never sent to clients */
+    file: String,
+    mime: String,
     status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
     note: String,
   },
-  { timestamps: true },
+  { timestamps: true, toJSON: { transform: (_doc, ret) => { delete ret.file; return ret; } } },
 );
 
 /** Hotel owner / property manager (vendor panel) */
@@ -34,6 +36,8 @@ const vendorSchema = new mongoose.Schema(
     },
     status: { type: String, enum: VENDOR_STATUS, default: 'pending', index: true },
     statusNote: String,
+    /** When the vendor asked for approval; cleared when sent back for changes */
+    submittedAt: Date,
     /** Admin-managed permissions for this vendor */
     permissions: {
       maxProperties: { type: Number, default: 10 },
